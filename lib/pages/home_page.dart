@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:project_flutter/pages/sign_in_page.dart';
 import 'translation_page.dart';
 import 'summary_page.dart';
+import 'splash_screen.dart';
 import 'questions_page.dart';
 import 'personal_page.dart';
 import 'settings_page.dart';
@@ -496,7 +497,7 @@ class AppDrawer extends StatelessWidget {
           }),
           const Divider(),
           _buildDrawerItem(Icons.logout_rounded, 'Logout', () {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SignInPage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SplashScreen()));
           }, color: Colors.red),
         ],
       ),
