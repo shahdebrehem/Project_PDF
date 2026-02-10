@@ -6,6 +6,8 @@ class PersonalPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     final List<Map<String, dynamic>> userFiles = [
       {
         'name': 'Research_Paper.pdf',
@@ -45,13 +47,13 @@ class PersonalPage extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('My Documents'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.black87),
+        backgroundColor: theme.cardColor,
+        foregroundColor: theme.textTheme.bodyLarge?.color,
+        iconTheme: theme.iconTheme,
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -59,7 +61,7 @@ class PersonalPage extends StatelessWidget {
             // User Info Section
             Container(
               width: double.infinity,
-              color: Colors.white,
+              color: theme.cardColor,
               padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
               child: Column(
                 children: [
@@ -84,27 +86,24 @@ class PersonalPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                        Icons.person_rounded,
-                        color: Colors.white,
-                        size: 40
+                    child: Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 40,
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     'Ahmed Mohamed',
-                    style: TextStyle(
-                      fontSize: 24,
+                    style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Premium User • ${userFiles.length} documents',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -113,9 +112,9 @@ class PersonalPage extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatItem('Completed', '4', Color(0xFF81C784)),
-                      _buildStatItem('Processing', '1', Color(0xFFFFB74D)),
-                      _buildStatItem('Total', '5', Color(0xFF64B5F6)),
+                      _buildStatItem(theme, 'Completed', '4', Color(0xFF81C784)),
+                      _buildStatItem(theme, 'Processing', '1', Color(0xFFFFB74D)),
+                      _buildStatItem(theme, 'Total', '5', Color(0xFF64B5F6)),
                     ],
                   ),
                 ],
@@ -126,30 +125,28 @@ class PersonalPage extends StatelessWidget {
 
             // Documents List Section
             Container(
-              color: Colors.white,
+              color: theme.cardColor,
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'All Documents',
-                    style: TextStyle(
-                      fontSize: 20,
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Your processed PDF files',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 20),
 
                   // Files List
-                  ...userFiles.map((file) => _buildUserFileItem(file)),
+                  ...userFiles.map((file) => _buildUserFileItem(theme, file)),
                 ],
               ),
             ),
@@ -159,7 +156,7 @@ class PersonalPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(String title, String value, Color color) {
+  Widget _buildStatItem(ThemeData theme, String title, String value, Color color) {
     return Column(
       children: [
         Container(
@@ -180,26 +177,28 @@ class PersonalPage extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           title,
-          style: TextStyle(
-            color: Colors.grey.shade600,
-            fontSize: 12,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildUserFileItem(Map<String, dynamic> file) {
+  Widget _buildUserFileItem(ThemeData theme, Map<String, dynamic> file) {
     Color statusColor = file['status'] == 'Completed' ? Color(0xFF81C784) : Color(0xFFFFB74D);
+    Color cardColor = theme.cardColor;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: theme.scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: theme.brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -233,9 +232,8 @@ class PersonalPage extends StatelessWidget {
                     children: [
                       Text(
                         file['name'],
-                        style: const TextStyle(
+                        style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -259,8 +257,8 @@ class PersonalPage extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             '${file['type']} • ${file['date']}',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
                               fontSize: 12,
                             ),
                           ),
@@ -269,8 +267,8 @@ class PersonalPage extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         file['size'],
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
                           fontSize: 11,
                         ),
                       ),

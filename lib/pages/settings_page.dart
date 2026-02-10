@@ -1,5 +1,5 @@
-// pages/settings_page.dart
 import 'package:flutter/material.dart';
+import '../main.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -9,7 +9,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool _isDarkMode = false;
   bool _notificationsEnabled = true;
   bool _autoSaveEnabled = false;
   String _selectedLanguage = 'english';
@@ -23,41 +22,34 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark =
+        Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.black87),
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Section
+            /// Header
             Container(
               width: double.infinity,
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Settings',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Customize your app experience',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -65,91 +57,57 @@ class _SettingsPageState extends State<SettingsPage> {
 
             const SizedBox(height: 8),
 
-            // Language Settings
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Language & Region',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+            /// Language
+            _section(
+              context,
+              title: 'Language & Region',
+              subtitle: 'Choose your preferred language',
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: _languages.map(
+                        (language) => _buildLanguageOption(
+                      context,
+                      label: language['label'],
+                      value: language['value'],
+                      isSelected:
+                      _selectedLanguage == language['value'],
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Choose your preferred language',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Language Options
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Column(
-                      children: _languages.map((language) => _buildLanguageOption(
-                        label: language['label'],
-                        value: language['value'],
-                        isSelected: _selectedLanguage == language['value'],
-                      )).toList(),
-                    ),
-                  ),
-                ],
+                  ).toList(),
+                ),
               ),
             ),
 
             const SizedBox(height: 8),
 
-            // App Settings
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
+            /// App Settings
+            _section(
+              context,
+              title: 'App Settings',
+              subtitle: 'Customize how the app behaves',
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'App Settings',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Customize how the app behaves',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Settings Options
                   _buildSettingItem(
+                    context,
                     icon: Icons.dark_mode_rounded,
                     title: 'Dark Mode',
                     subtitle: 'Switch to dark theme',
                     trailing: Switch(
-                      value: _isDarkMode,
+                      value: isDark,
                       onChanged: (value) {
-                        setState(() {
-                          _isDarkMode = value;
-                        });
+                        MyApp.of(context).changeTheme(
+                          value
+                              ? ThemeMode.dark
+                              : ThemeMode.light,
+                        );
                       },
-                      activeColor: Color(0xFF64B5F6),
                     ),
                   ),
                   _buildSettingItem(
+                    context,
                     icon: Icons.notifications_rounded,
                     title: 'Push Notifications',
                     subtitle: 'Receive app notifications',
@@ -160,10 +118,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           _notificationsEnabled = value;
                         });
                       },
-                      activeColor: Color(0xFF64B5F6),
                     ),
                   ),
                   _buildSettingItem(
+                    context,
                     icon: Icons.save_rounded,
                     title: 'Auto Save',
                     subtitle: 'Automatically save your work',
@@ -174,7 +132,6 @@ class _SettingsPageState extends State<SettingsPage> {
                           _autoSaveEnabled = value;
                         });
                       },
-                      activeColor: Color(0xFF64B5F6),
                     ),
                   ),
                 ],
@@ -183,80 +140,19 @@ class _SettingsPageState extends State<SettingsPage> {
 
             const SizedBox(height: 8),
 
-            // Account Settings
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
+            /// About
+            _section(
+              context,
+              title: 'About',
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Account',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Manage your account settings',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Account Options
-                  _buildAccountItem(
-                    icon: Icons.lock_rounded,
-                    title: 'Change Password',
-                    subtitle: 'Update your password',
-                    color: Color(0xFF64B5F6),
-                  ),
-                  _buildAccountItem(
-                    icon: Icons.person_rounded,
-                    title: 'Personal Information',
-                    subtitle: 'Edit your profile details',
-                    color: Color(0xFF81C784),
-                  ),
-                  _buildAccountItem(
-                    icon: Icons.storage_rounded,
-                    title: 'Storage Management',
-                    subtitle: 'Manage your stored files',
-                    color: Color(0xFFFFB74D),
-                  ),
-                  _buildAccountItem(
-                    icon: Icons.help_rounded,
-                    title: 'Help & Support',
-                    subtitle: 'Get help using the app',
-                    color: Color(0xFF4DD0E1),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // App Info
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'About',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _buildInfoItem('App Version', '1.0.0'),
-                  _buildInfoItem('Build Number', '2024.01.001'),
-                  _buildInfoItem('Last Updated', 'January 15, 2024'),
+                children: const [
+                  _InfoRow(title: 'App Version', value: '1.0.0'),
+                  _InfoRow(
+                      title: 'Build Number',
+                      value: '2024.01.001'),
+                  _InfoRow(
+                      title: 'Last Updated',
+                      value: 'January 15, 2024'),
                 ],
               ),
             ),
@@ -266,190 +162,101 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildLanguageOption({
-    required String label,
-    required String value,
-    required bool isSelected,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedLanguage = value;
-          });
-        },
-        borderRadius: BorderRadius.circular(0),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isSelected ? Color(0xFF64B5F6).withOpacity(0.1) : Colors.transparent,
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.grey.shade200,
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected ? Color(0xFF64B5F6) : Colors.grey.shade400,
-                    width: 2,
-                  ),
-                ),
-                child: isSelected
-                    ? Container(
-                  margin: EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF64B5F6),
-                  ),
-                )
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  color: isSelected ? Color(0xFF64B5F6) : Colors.black87,
-                ),
-              ),
-            ],
-          ),
-        ),
+  /// ================= Helpers =================
+
+  Widget _section(
+      BuildContext context, {
+        required String title,
+        String? subtitle,
+        required Widget child,
+      }) {
+    return Container(
+      color: Theme.of(context).cardColor,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style:
+              Theme.of(context).textTheme.titleLarge),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style:
+                Theme.of(context).textTheme.bodyMedium),
+          ],
+          const SizedBox(height: 20),
+          child,
+        ],
       ),
     );
   }
 
-  Widget _buildSettingItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Widget trailing,
-  }) {
+  Widget _buildLanguageOption(
+      BuildContext context, {
+        required String label,
+        required String value,
+        required bool isSelected,
+      }) {
+    return ListTile(
+      onTap: () {
+        setState(() {
+          _selectedLanguage = value;
+        });
+      },
+      title: Text(label),
+      trailing: isSelected
+          ? const Icon(Icons.check_rounded)
+          : null,
+    );
+  }
+
+  Widget _buildSettingItem(
+      BuildContext context, {
+        required IconData icon,
+        required String title,
+        required String subtitle,
+        required Widget trailing,
+      }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: ListTile(
-          leading: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Color(0xFF64B5F6).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: Color(0xFF64B5F6),
-              size: 20,
-            ),
-          ),
-          title: Text(
-            title,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-            ),
-          ),
-          trailing: trailing,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-        ),
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        trailing: trailing,
       ),
     );
   }
+}
 
-  Widget _buildAccountItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(16),
-          child: ListTile(
-            leading: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 20,
-              ),
-            ),
-            title: Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
-            ),
-            subtitle: Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-              ),
-            ),
-            trailing: Icon(
-              Icons.arrow_forward_ios_rounded,
-              color: Colors.grey.shade400,
-              size: 16,
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-          ),
-        ),
-      ),
-    );
-  }
+/// Info Row
+class _InfoRow extends StatelessWidget {
+  final String title;
+  final String value;
 
-  Widget _buildInfoItem(String title, String value) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+  const _InfoRow({
+    required this.title,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
+          Text(title,
+              style:
+              Theme.of(context).textTheme.bodyMedium),
+          Text(value,
+              style:
+              Theme.of(context).textTheme.bodyLarge),
         ],
       ),
     );

@@ -16,24 +16,24 @@ class _SummaryPageState extends State<SummaryPage> {
       _isGenerating = true;
     });
 
-    // محاكاة عملية إنشاء الملخص
-    Future.delayed(Duration(seconds: 2), () {
-      setState(() {
-        _isGenerating = false;
-      });
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+        });
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Summary'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.black87),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -42,29 +42,29 @@ class _SummaryPageState extends State<SummaryPage> {
             // Header Section
             Container(
               width: double.infinity,
-              color: Colors.white,
+              color: theme.cardColor,
               padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Summary',
-                    style: TextStyle(
-                      fontSize: 32,
+                    style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Icon(Icons.description_outlined, color: Colors.grey.shade600, size: 20),
+                      Icon(
+                        Icons.description_outlined,
+                        color: theme.iconTheme.color,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Research_Paper_2024.pdf',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey.shade600,
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -76,67 +76,72 @@ class _SummaryPageState extends State<SummaryPage> {
 
             const SizedBox(height: 8),
 
-            // Generate Summary Button Section
+            // Generate Summary Button
             Container(
-              color: Colors.white,
+              color: theme.cardColor,
               padding: const EdgeInsets.all(24),
               child: SizedBox(
                 width: double.infinity,
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _isGenerating ? null : _generateSummary,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: _isGenerating
-                              ? [Colors.grey.shade400, Colors.grey.shade500]
-                              : [Color(0xFF64B5F6), Color(0xFF4DD0E1)],
+                child: InkWell(
+                  onTap: _isGenerating ? null : _generateSummary,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: _isGenerating
+                            ? [
+                          theme.disabledColor,
+                          theme.disabledColor.withOpacity(0.8),
+                        ]
+                            : const [
+                          Color(0xFF64B5F6),
+                          Color(0xFF4DD0E1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: _isGenerating
+                          ? []
+                          : [
+                        BoxShadow(
+                          color: const Color(0xFF64B5F6)
+                              .withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: _isGenerating
-                            ? []
-                            : [
-                          BoxShadow(
-                            color: Color(0xFF64B5F6).withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_isGenerating)
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(Colors.white),
-                              ),
-                            )
-                          else
-                            Icon(
-                              Icons.summarize_rounded,
-                              color: Colors.white,
-                              size: 20,
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isGenerating)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                              AlwaysStoppedAnimation(Colors.white),
                             ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _isGenerating ? 'Generating Summary...' : 'Generate Summary',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
+                          )
+                        else
+                          const Icon(
+                            Icons.summarize_rounded,
+                            color: Colors.white,
+                            size: 20,
                           ),
-                        ],
-                      ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isGenerating
+                              ? 'Generating Summary...'
+                              : 'Generate Summary',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -145,80 +150,67 @@ class _SummaryPageState extends State<SummaryPage> {
 
             const SizedBox(height: 8),
 
-            // Summary Result Section
+            // Summary Result
             Container(
-              color: Colors.white,
+              color: theme.cardColor,
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Summary Result',
-                    style: TextStyle(
-                      fontSize: 20,
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 20),
 
-                  // Summary Content Box
                   Container(
                     width: double.infinity,
-                    constraints: BoxConstraints(minHeight: 300),
+                    constraints: const BoxConstraints(minHeight: 300),
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: theme.scaffoldBackgroundColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
+                      border: Border.all(color: theme.dividerColor),
                     ),
                     child: _isGenerating
                         ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          SizedBox(
+                          const SizedBox(
                             width: 40,
                             height: 40,
                             child: CircularProgressIndicator(
                               strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation(Color(0xFF64B5F6)),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'Generating your summary...',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                            ),
+                            style: theme.textTheme.bodyMedium,
                           ),
                         ],
                       ),
                     )
-                        : SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'This research paper explores the application of artificial intelligence in document processing and analysis. The study focuses on three key areas: automated summarization, multilingual translation, and intelligent question generation.',
-                            style: TextStyle(
-                              fontSize: 16,
-                              height: 1.6,
-                              color: Colors.black87,
-                            ),
+                        : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'This research paper explores the application of artificial intelligence in document processing and analysis. The study focuses on three key areas: automated summarization, multilingual translation, and intelligent question generation.',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            height: 1.6,
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'The findings demonstrate that AI-powered tools can significantly reduce the time required for document analysis while maintaining high accuracy rates. The paper concludes with recommendations for future development in this field.',
-                            style: TextStyle(
-                              fontSize: 16,
-                              height: 1.6,
-                              color: Colors.black87,
-                            ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'The findings demonstrate that AI-powered tools can significantly reduce the time required for document analysis while maintaining high accuracy rates. The paper concludes with recommendations for future development in this field.',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            height: 1.6,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
 
@@ -227,78 +219,65 @@ class _SummaryPageState extends State<SummaryPage> {
                   // Action Buttons
                   Row(
                     children: [
-                      // Copy Button
                       Expanded(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {},
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.copy_rounded,
-                                    color: Colors.grey.shade700,
-                                    size: 18,
+                        child: InkWell(
+                          onTap: () {},
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                              Border.all(color: theme.dividerColor),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.copy_rounded,
+                                    color: theme.iconTheme.color, size: 18),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Copy',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Copy',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
-
-                      // Download Button
                       Expanded(
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {},
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Color(0xFF64B5F6).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Color(0xFF64B5F6)),
+                        child: InkWell(
+                          onTap: () {},
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF64B5F6).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF64B5F6),
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.download_rounded,
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.download_rounded,
+                                    color: Color(0xFF64B5F6), size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Download',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
                                     color: Color(0xFF64B5F6),
-                                    size: 18,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Download',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF64B5F6),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ),

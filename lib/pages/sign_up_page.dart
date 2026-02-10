@@ -1,4 +1,3 @@
-// pages/sign_up_page.dart
 import 'package:flutter/material.dart';
 import 'home_page.dart';
 
@@ -20,30 +19,32 @@ class _SignUpPageState extends State<SignUpPage> {
       _isLoading = true;
     });
 
-    // محاكاة عملية إنشاء الحساب
-    Future.delayed(Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () {
       setState(() {
         _isLoading = false;
       });
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomePage()),
+        MaterialPageRoute(builder: (_) => const HomePage()),
       );
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Section with Gradient
+
+            /// ===== Header =====
             Container(
               width: double.infinity,
               height: 280,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -61,21 +62,22 @@ class _SignUpPageState extends State<SignUpPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Back Button
-                    Padding(
-                      padding: const EdgeInsets.only(right: 280, bottom: 50),
-                      child: Material(
-                        color: Colors.transparent,
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                            left: 16, bottom: 40),
                         child: InkWell(
                           onTap: () => Navigator.pop(context),
                           borderRadius: BorderRadius.circular(20),
                           child: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color:
+                              Colors.white.withOpacity(0.2),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.arrow_back_rounded,
                               color: Colors.white,
                               size: 20,
@@ -90,7 +92,7 @@ class _SignUpPageState extends State<SignUpPage> {
                         color: Colors.white.withOpacity(0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.person_add_rounded,
                         size: 64,
                         color: Colors.white,
@@ -118,183 +120,125 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
             ),
 
-            // Form Section
+            /// ===== Form =====
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
                   const SizedBox(height: 24),
 
-                  // Name Field
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
+                  _inputContainer(
+                    context,
                     child: TextField(
                       controller: _nameController,
-                      decoration: InputDecoration(
+                      style: theme.textTheme.bodyLarge,
+                      decoration: const InputDecoration(
                         labelText: 'Full Name',
-                        labelStyle: TextStyle(color: Colors.grey.shade600),
-                        prefixIcon: Icon(Icons.person_rounded, color: Colors.grey.shade600),
+                        prefixIcon: Icon(Icons.person_rounded),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.all(20),
+                        contentPadding: EdgeInsets.all(20),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 20),
 
-                  // Email Field
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
+                  _inputContainer(
+                    context,
                     child: TextField(
                       controller: _emailController,
-                      decoration: InputDecoration(
+                      style: theme.textTheme.bodyLarge,
+                      decoration: const InputDecoration(
                         labelText: 'Email Address',
-                        labelStyle: TextStyle(color: Colors.grey.shade600),
-                        prefixIcon: Icon(Icons.email_rounded, color: Colors.grey.shade600),
+                        prefixIcon: Icon(Icons.email_rounded),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.all(20),
+                        contentPadding: EdgeInsets.all(20),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 20),
 
-                  // Password Field
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
+                  _inputContainer(
+                    context,
                     child: TextField(
                       controller: _passwordController,
                       obscureText: true,
-                      decoration: InputDecoration(
+                      style: theme.textTheme.bodyLarge,
+                      decoration: const InputDecoration(
                         labelText: 'Password',
-                        labelStyle: TextStyle(color: Colors.grey.shade600),
-                        prefixIcon: Icon(Icons.lock_rounded, color: Colors.grey.shade600),
+                        prefixIcon: Icon(Icons.lock_rounded),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.all(20),
+                        contentPadding: EdgeInsets.all(20),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 32),
 
-                  // Sign Up Button
+                  /// Sign Up Button
                   SizedBox(
                     width: double.infinity,
                     height: 56,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isLoading ? null : _signUp,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: _isLoading
-                                  ? [Colors.grey.shade400, Colors.grey.shade500]
-                                  : [Color(0xFF64B5F6), Color(0xFF4DD0E1)],
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: _isLoading
-                                ? []
-                                : [
-                              BoxShadow(
-                                color: Color(0xFF64B5F6).withOpacity(0.3),
-                                blurRadius: 15,
-                                offset: const Offset(0, 8),
-                              ),
+                    child: InkWell(
+                      onTap: _isLoading ? null : _signUp,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _isLoading
+                                ? [
+                              Colors.grey.shade400,
+                              Colors.grey.shade500
+                            ]
+                                : const [
+                              Color(0xFF64B5F6),
+                              Color(0xFF4DD0E1)
                             ],
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: _isLoading
+                              ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                              : const Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.center,
                             children: [
-                              if (_isLoading)
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(Colors.white),
-                                  ),
-                                )
-                              else
-                                Icon(
+                              Icon(
                                   Icons.person_add_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              const SizedBox(width: 8),
+                                  color: Colors.white),
+                              SizedBox(width: 8),
                               Text(
-                                _isLoading ? 'Creating Account...' : 'Create Account',
+                                'Create Account',
                                 style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
                                   color: Colors.white,
+                                  fontWeight:
+                                  FontWeight.w600,
                                 ),
-                              ),
+                              )
                             ],
                           ),
                         ),
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 32),
 
-                  // Sign In Link
+                  /// Sign In
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         "Already have an account?",
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                        ),
+                        style: theme.textTheme.bodyMedium,
                       ),
-                      const SizedBox(width: 4),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => Navigator.pop(context),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            child: Text(
-                              'Sign In',
-                              style: TextStyle(
-                                color: Color(0xFF64B5F6),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Sign In'),
                       ),
                     ],
                   ),
@@ -304,6 +248,28 @@ class _SignUpPageState extends State<SignUpPage> {
           ],
         ),
       ),
+    );
+  }
+
+  /// ===== Input Container =====
+  Widget _inputContainer(
+      BuildContext context, {
+        required Widget child,
+      }) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }

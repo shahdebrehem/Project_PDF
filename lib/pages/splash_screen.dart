@@ -13,16 +13,18 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Column(
         children: [
           // Header Section
           Expanded(
             child: Container(
               width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
@@ -30,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     Color(0xFF4DD0E1),
                   ],
                 ),
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
                 ),
@@ -77,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
           // Footer
           Container(
-            color: Colors.grey.shade50,
+            color: theme.scaffoldBackgroundColor,
             padding: const EdgeInsets.all(40),
             child: Column(
               children: [
@@ -89,7 +91,9 @@ class _SplashScreenState extends State<SplashScreen> {
                     onTap: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const SignInPage()),
+                        MaterialPageRoute(
+                          builder: (context) => const SignInPage(),
+                        ),
                       );
                     },
                     borderRadius: BorderRadius.circular(16),
@@ -104,7 +108,8 @@ class _SplashScreenState extends State<SplashScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF64B5F6).withOpacity(0.3),
+                            color: const Color(0xFF64B5F6)
+                                .withOpacity(0.3),
                             blurRadius: 15,
                             offset: const Offset(0, 8),
                           ),
@@ -114,7 +119,8 @@ class _SplashScreenState extends State<SplashScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.login_rounded, color: Colors.white, size: 20),
+                            Icon(Icons.login_rounded,
+                                color: Colors.white, size: 20),
                             SizedBox(width: 8),
                             Text(
                               'Sign In',
@@ -141,27 +147,34 @@ class _SplashScreenState extends State<SplashScreen> {
                     onTap: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => const HomePage()),
+                        MaterialPageRoute(
+                          builder: (context) => const HomePage(),
+                        ),
                       );
                     },
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.shade300, width: 2),
+                        border: Border.all(
+                          color: theme.dividerColor,
+                          width: 2,
+                        ),
                       ),
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.play_arrow_rounded, color: Colors.grey, size: 20),
+                            Icon(
+                              Icons.play_arrow_rounded,
+                              color: theme.iconTheme.color,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Continue Without Account',
-                              style: TextStyle(
-                                fontSize: 16,
+                              style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.grey,
                               ),
                             ),
                           ],
@@ -175,10 +188,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
                 Text(
                   'v1.0.0',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 14,
-                  ),
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),

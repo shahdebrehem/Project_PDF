@@ -62,21 +62,20 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('SmartPDF'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: theme.cardColor,
+        foregroundColor: theme.textTheme.bodyLarge?.color,
         elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.person_rounded),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const PersonalPage()),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const PersonalPage()));
             },
           ),
         ],
@@ -89,24 +88,19 @@ class _HomePageState extends State<HomePage> {
             // Upload Section
             Container(
               width: double.infinity,
-              color: Colors.white,
+              color: theme.cardColor,
               padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
               child: Column(
                 children: [
                   Text(
                     'Upload your PDF',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+                    style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Choose a PDF file to get started',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -117,18 +111,15 @@ class _HomePageState extends State<HomePage> {
                       width: double.infinity,
                       height: 200,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF64B5F6),
-                            Color(0xFF4DD0E1),
-                          ],
+                          colors: [Color(0xFF64B5F6), Color(0xFF4DD0E1)],
                         ),
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Color(0xFF64B5F6).withOpacity(0.3),
+                            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.5 : 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -148,14 +139,10 @@ class _HomePageState extends State<HomePage> {
                                   color: Colors.white.withOpacity(0.3),
                                   shape: BoxShape.circle,
                                 ),
-                                child: Icon(
-                                  Icons.upload_file_rounded,
-                                  size: 48,
-                                  color: Colors.white,
-                                ),
+                                child: const Icon(Icons.upload_file_rounded, size: 48, color: Colors.white),
                               ),
                               const SizedBox(height: 16),
-                              Text(
+                              const Text(
                                 'Upload File',
                                 style: TextStyle(
                                   fontSize: 20,
@@ -173,26 +160,19 @@ class _HomePageState extends State<HomePage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Color(0xFF81C784).withOpacity(0.1),
+                        color: const Color(0xFF81C784).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Color(0xFF81C784),
-                          width: 2,
-                        ),
+                        border: Border.all(color: const Color(0xFF81C784), width: 2),
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Color(0xFF81C784),
+                              color: const Color(0xFF81C784),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
-                              Icons.check_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
+                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 24),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -201,29 +181,19 @@ class _HomePageState extends State<HomePage> {
                               children: [
                                 Text(
                                   _selectedFileName!,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                    color: Colors.black87,
-                                  ),
+                                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
+                                const Text(
                                   'Ready to process',
-                                  style: TextStyle(
-                                    color: Color(0xFF81C784),
-                                    fontSize: 14,
-                                  ),
+                                  style: TextStyle(color: Color(0xFF81C784), fontSize: 14),
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
                             onPressed: _changePDF,
-                            icon: Icon(
-                              Icons.close_rounded,
-                              color: Colors.grey.shade600,
-                            ),
+                            icon: Icon(Icons.close_rounded, color: theme.iconTheme.color?.withOpacity(0.7)),
                           ),
                         ],
                       ),
@@ -236,37 +206,23 @@ class _HomePageState extends State<HomePage> {
 
             // AI Features Section
             Container(
-              color: Colors.grey.shade50,
+              color: theme.scaffoldBackgroundColor,
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'AI Features',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
+                  Text('AI Features', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
 
                   // Features List
-                  ..._features.map((feature) => _buildFeatureItem(context, feature)),
+                  ..._features.map((feature) => _buildFeatureItem(context, theme, feature)),
 
                   const SizedBox(height: 32),
 
                   // Recent Files
-                  Text(
-                    'Recent Files',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
+                  Text('Recent Files', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
-                  ..._recentFiles.map((file) => _buildRecentFileItem(file)),
+                  ..._recentFiles.map((file) => _buildRecentFileItem(theme, file)),
                 ],
               ),
             ),
@@ -276,15 +232,15 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildFeatureItem(BuildContext context, Feature feature) {
+  Widget _buildFeatureItem(BuildContext context, ThemeData theme, Feature feature) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.5 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -295,11 +251,11 @@ class _HomePageState extends State<HomePage> {
         child: InkWell(
           onTap: () {
             if (feature.route == '/translation') {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const TranslationPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TranslationPage()));
             } else if (feature.route == '/summary') {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const SummaryPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const SummaryPage()));
             } else if (feature.route == '/questions') {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const QuestionsPage()));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const QuestionsPage()));
             }
           },
           borderRadius: BorderRadius.circular(20),
@@ -313,41 +269,28 @@ class _HomePageState extends State<HomePage> {
                     color: feature.color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    feature.icon,
-                    color: feature.color,
-                    size: 32,
-                  ),
+                  child: Icon(feature.icon, color: feature.color, size: 32),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        feature.title,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
+                      Text(feature.title,
+                          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
                       const SizedBox(height: 4),
                       Text(
                         feature.description,
-                        style: TextStyle(
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
                           fontSize: 14,
-                          color: Colors.grey.shade600,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: Colors.grey.shade400,
-                  size: 16,
-                ),
+                Icon(Icons.arrow_forward_ios_rounded,
+                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5), size: 16),
               ],
             ),
           ),
@@ -356,16 +299,16 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildRecentFileItem(Map<String, dynamic> file) {
+  Widget _buildRecentFileItem(ThemeData theme, Map<String, dynamic> file) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.5 : 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -376,43 +319,34 @@ class _HomePageState extends State<HomePage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: theme.brightness == Brightness.dark
+                  ? Colors.grey.shade800
+                  : Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              Icons.description_outlined,
-              color: Colors.grey.shade600,
-              size: 24,
-            ),
+            child: Icon(Icons.description_outlined,
+                color: theme.brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade600,
+                size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  file['name'],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
-                ),
+                Text(file['name'],
+                    style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                Text(
-                  '${file['type']} • ${file['date']}',
-                  style: TextStyle(
-                    color: Colors.grey.shade600,
-                    fontSize: 13,
-                  ),
-                ),
+                Text('${file['type']} • ${file['date']}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                      fontSize: 13,
+                    )),
               ],
             ),
           ),
           IconButton(
-            icon: Icon(
-              Icons.more_vert_rounded,
-              color: Colors.grey.shade600,
-            ),
+            icon: Icon(Icons.more_vert_rounded,
+                color: theme.iconTheme.color?.withOpacity(0.7)),
             onPressed: () {},
           ),
         ],
@@ -442,19 +376,18 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF64B5F6),
-                  Color(0xFF4DD0E1),
-                ],
+                colors: [Color(0xFF64B5F6), Color(0xFF4DD0E1)],
               ),
             ),
             child: const Column(
@@ -466,48 +399,44 @@ class AppDrawer extends StatelessWidget {
                   child: Icon(Icons.person_rounded, color: Color(0xFF64B5F6), size: 30),
                 ),
                 SizedBox(height: 12),
-                Text(
-                  'Ahmed Mohamed',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'ahmed@example.com',
-                  style: TextStyle(color: Colors.white70),
-                ),
+                Text('Ahmed Mohamed',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('ahmed@example.com', style: TextStyle(color: Colors.white70)),
               ],
             ),
           ),
-          _buildDrawerItem(Icons.home_rounded, 'Home', () {
+          _buildDrawerItem(context, Icons.home_rounded, 'Home', () {
             Navigator.pop(context);
-          }),
-          _buildDrawerItem(Icons.translate_rounded, 'Translation', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const TranslationPage()));
-          }),
-          _buildDrawerItem(Icons.summarize_rounded, 'Summary', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const SummaryPage()));
-          }),
-          _buildDrawerItem(Icons.quiz_rounded, 'Questions', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const QuestionsPage()));
-          }),
-          _buildDrawerItem(Icons.person_rounded, 'Personal Page', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const PersonalPage()));
-          }),
-          _buildDrawerItem(Icons.settings_rounded, 'Settings', () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
-          }),
+          }, theme: theme),
+          _buildDrawerItem(context, Icons.translate_rounded, 'Translation', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const TranslationPage()));
+          }, theme: theme),
+          _buildDrawerItem(context, Icons.summarize_rounded, 'Summary', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SummaryPage()));
+          }, theme: theme),
+          _buildDrawerItem(context, Icons.quiz_rounded, 'Questions', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const QuestionsPage()));
+          }, theme: theme),
+          _buildDrawerItem(context, Icons.person_rounded, 'Personal Page', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PersonalPage()));
+          }, theme: theme),
+          _buildDrawerItem(context, Icons.settings_rounded, 'Settings', () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage()));
+          }, theme: theme),
           const Divider(),
-          _buildDrawerItem(Icons.logout_rounded, 'Logout', () {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const SplashScreen()));
-          }, color: Colors.red),
+          _buildDrawerItem(context, Icons.logout_rounded, 'Logout', () {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const SplashScreen()));
+          }, color: Colors.red, theme: theme),
         ],
       ),
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {Color? color}) {
+  Widget _buildDrawerItem(BuildContext context, IconData icon, String title, VoidCallback onTap,
+      {Color? color, required ThemeData theme}) {
     return ListTile(
-      leading: Icon(icon, color: color ?? Colors.grey.shade700),
-      title: Text(title, style: TextStyle(color: color ?? Colors.black87)),
+      leading: Icon(icon, color: color ?? theme.iconTheme.color),
+      title: Text(title, style: TextStyle(color: color ?? theme.textTheme.bodyLarge?.color)),
       onTap: onTap,
     );
   }
