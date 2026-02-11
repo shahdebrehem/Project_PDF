@@ -58,7 +58,6 @@ class PersonalPage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // User Info Section
             Container(
               width: double.infinity,
               color: theme.cardColor,
@@ -107,8 +106,6 @@ class PersonalPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Stats Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -120,10 +117,7 @@ class PersonalPage extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 8),
-
-            // Documents List Section
             Container(
               color: theme.cardColor,
               padding: const EdgeInsets.all(24),
@@ -144,8 +138,6 @@ class PersonalPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Files List
                   ...userFiles.map((file) => _buildUserFileItem(theme, file)),
                 ],
               ),
@@ -186,8 +178,8 @@ class PersonalPage extends StatelessWidget {
   }
 
   Widget _buildUserFileItem(ThemeData theme, Map<String, dynamic> file) {
-    Color statusColor = file['status'] == 'Completed' ? Color(0xFF81C784) : Color(0xFFFFB74D);
-    Color cardColor = theme.cardColor;
+    Color statusColor =
+    file['status'] == 'Completed' ? Color(0xFF81C784) : Color(0xFFFFB74D);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -232,6 +224,8 @@ class PersonalPage extends StatelessWidget {
                     children: [
                       Text(
                         file['name'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -240,7 +234,8 @@ class PersonalPage extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(6),
@@ -255,11 +250,16 @@ class PersonalPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            '${file['type']} • ${file['date']}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                              fontSize: 12,
+                          Expanded(
+                            child: Text(
+                              '${file['type']} • ${file['date']}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.textTheme.bodyMedium?.color
+                                    ?.withOpacity(0.7),
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ],
@@ -268,7 +268,8 @@ class PersonalPage extends StatelessWidget {
                       Text(
                         file['size'],
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                          color: theme.textTheme.bodySmall?.color
+                              ?.withOpacity(0.6),
                           fontSize: 11,
                         ),
                       ),
