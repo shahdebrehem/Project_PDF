@@ -39,11 +39,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/password', [SettingsController::class, 'changePassword']);
     });
 
-
-Route::middleware('auth:sanctum')->group(function () {
+    // Files
     Route::get('/files/recent', [FilesController::class, 'recent']);
     Route::post('/files/upload', [FilesController::class, 'upload']);
-});
-
-
 });
