@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'home_page.dart';
+import '../services/auth_service.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({Key? key}) : super(key: key);
@@ -12,22 +13,50 @@ class _SignUpPageState extends State<SignUpPage> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
+  final _authService = AuthService();
 
-  void _signUp() {
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  Future<void> _signUp() async {
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        _isLoading = false;
-      });
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+    try {
+      final response = await _authService.signUp(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
-    });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -53,7 +82,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     /// ===== Header =====
                     Container(
                       width: double.infinity,
-                      height: constraints.maxHeight * 0.35, // 👈 بدل 280 ثابت
+                      height: constraints.maxHeight * 0.35,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
@@ -142,6 +171,30 @@ class _SignUpPageState extends State<SignUpPage> {
                         child: Column(
                           children: [
                             const SizedBox(height: 24),
+
+                            if (_errorMessage != null) ...[
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.red.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error_outline, color: Colors.red.shade700),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: TextStyle(color: Colors.red.shade700),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                            ],
 
                             _inputContainer(
                               context,
@@ -272,7 +325,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                       .bodyMedium,
                                 ),
                                 TextButton(
-                                  onPressed: () =>
+                                  onPressed: _isLoading ? null : () =>
                                       Navigator.pop(
                                           context),
                                   child: const Text(
@@ -315,5 +368,13 @@ class _SignUpPageState extends State<SignUpPage> {
       ),
       child: child,
     );
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 }
