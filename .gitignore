@@ -43,3 +43,55 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# =====================
+# 🔹 Python
+# =====================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# =====================
+# 🔹 AI / Models
+# =====================
+model/
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.onnx
+
+# Dataset (لو كبيرة)
+dataset.json
+
+# =====================
+# 🔹 Flutter
+# =====================
+build/
+.dart_tool/
+.packages
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+
+# Android
+android/.gradle/
+android/app/build/
+
+# =====================
+# 🔹 OS Files
+# =====================
+.DS_Store
+Thumbs.db
