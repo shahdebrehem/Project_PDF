@@ -1,16 +1,31 @@
-# project_flutter
+# PDF Summarizer
 
-A new Flutter project.
+This project is a PDF summarization application built with:
 
-## Getting Started
+- **Flutter** for the frontend
+- **FastAPI** for the backend
+- **HuggingFace BART model** for AI summarization
 
-This project is a starting point for a Flutter application.
+## Features
 
-A few resources to get you started if this is your first Flutter project:
+- Upload and summarize PDF documents
+- Copy & Download summarized text
+- Supports multiple platforms (Web, Android, iOS, Desktop)
+- Stores session data locally with SharedPreferences
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Model
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The AI summarizer model is hosted on HuggingFace:  
+[https://huggingface.co/hany22/PDF-Summarizer](https://huggingface.co/hany22/PDF-Summarizer)
+
+## Usage
+
+1. Run the FastAPI backend:
+
+```bash
+cd Summarization
+uvicorn app:app --reload
+```
+2. Run the Flutter frontend:
+```flutter run -d chrome```
+3. Open the app and go to the Summary page to upload PDF and generate summaries.
