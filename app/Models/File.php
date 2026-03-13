@@ -1,4 +1,5 @@
 <?php
+// app/Models/File.php
 
 namespace App\Models;
 
@@ -11,5 +12,16 @@ class File extends Model
         'name',
         'type',
         'path',
+        'size',
+        'status',
     ];
+
+    protected $casts = [
+        'size' => 'integer',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

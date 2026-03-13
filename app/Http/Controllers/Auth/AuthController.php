@@ -13,19 +13,29 @@ class AuthController extends Controller
 {
     public function signup(Request $request)
     {
-        $data = $request->validate([
-            'name' => ['required','string','max:255'],
-            'email' => ['required','email','max:255','unique:users,email'],
-            'password' => ['required','string','min:8','confirmed'],
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
 
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
+        $userData = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ];
 
-        $token = $user->createToken('api')->plainTextToken;
+        // رفع الصورة لو موجودة
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = Str::random(20) . '.' . $image->getClientOriginalExtension();
+            $imagePath = $image->storeAs('users/' . time(), $imageName, 'public');
+            $userData['image'] = asset('storage/' . $imagePath);
+        }
+
+        $user = User::create($userData);
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -36,6 +46,7 @@ class AuthController extends Controller
                     'id' => (string) $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'image' => $user->image ?? null,
                 ]
             ]
         ]);
