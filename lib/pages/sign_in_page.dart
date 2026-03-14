@@ -83,8 +83,6 @@ class _SignInPageState extends State<SignInPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-
-            /// ===== Header =====
             Container(
               width: double.infinity,
               height: 280,
@@ -140,7 +138,6 @@ class _SignInPageState extends State<SignInPage> {
               ),
             ),
 
-            /// ===== Form =====
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Form(
@@ -173,7 +170,6 @@ class _SignInPageState extends State<SignInPage> {
                       const SizedBox(height: 20),
                     ],
 
-                    /// Email
                     _inputContainer(
                       context,
                       child: TextFormField(
@@ -201,7 +197,6 @@ class _SignInPageState extends State<SignInPage> {
 
                     const SizedBox(height: 20),
 
-                    /// Password
                     _inputContainer(
                       context,
                       child: TextFormField(
@@ -241,7 +236,6 @@ class _SignInPageState extends State<SignInPage> {
 
                     const SizedBox(height: 16),
 
-                    /// Forgot Password
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
@@ -260,7 +254,6 @@ class _SignInPageState extends State<SignInPage> {
 
                     const SizedBox(height: 32),
 
-                    /// Sign In Button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -310,7 +303,6 @@ class _SignInPageState extends State<SignInPage> {
 
                     const SizedBox(height: 32),
 
-                    /// Sign Up
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -342,7 +334,6 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
-  /// ===== Input Container =====
   Widget _inputContainer(BuildContext context,
       {required Widget child}) {
     final theme = Theme.of(context);

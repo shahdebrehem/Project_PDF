@@ -11,7 +11,11 @@ class ApiService {
   }
 
   late Dio dio;
-  static const String baseUrl = 'http://10.0.2.2:8000/api';
+
+  // حددي البيئة المناسبة
+  static const String baseUrl = 'http://10.0.2.2:8000/api'; // للـ Emulator
+  // static const String baseUrl = 'http://localhost:8000/api'; // للـ iOS Simulator
+  // static const String baseUrl = 'http://192.168.1.x:8000/api'; // للجهاز الحقيقي
 
   bool _initialized = false;
 
@@ -25,6 +29,7 @@ class ApiService {
       receiveTimeout: const Duration(seconds: 30),
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
     ));
 
@@ -35,7 +40,16 @@ class ApiService {
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
+        print('🌐 Request: ${options.method} ${options.path}');
         return handler.next(options);
+      },
+      onResponse: (response, handler) {
+        print('✅ Response: ${response.statusCode}');
+        return handler.next(response);
+      },
+      onError: (DioException e, handler) {
+        print('❌ Error: ${e.message}');
+        return handler.next(e);
       },
     ));
   }

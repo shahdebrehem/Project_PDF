@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 class QuestionsPage extends StatefulWidget {
-  const QuestionsPage({Key? key}) : super(key: key);
+  final String? fileName;
+
+  const QuestionsPage({Key? key, this.fileName}) : super(key: key);
 
   @override
   State<QuestionsPage> createState() => _QuestionsPageState();
@@ -47,11 +49,11 @@ class _QuestionsPageState extends State<QuestionsPage> {
       appBar: AppBar(
         title: const Text('Questions Generator'),
         elevation: 0,
+        backgroundColor: theme.cardColor,
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Section
             Container(
               width: double.infinity,
               color: theme.cardColor,
@@ -71,10 +73,14 @@ class _QuestionsPageState extends State<QuestionsPage> {
                       Icon(Icons.description_outlined,
                           color: theme.iconTheme.color, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        'Research_Paper_2024.pdf',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          widget.fileName ?? 'No file selected',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -85,7 +91,6 @@ class _QuestionsPageState extends State<QuestionsPage> {
 
             const SizedBox(height: 8),
 
-            // Configuration Section
             Container(
               color: theme.cardColor,
               padding: const EdgeInsets.all(24),
@@ -100,7 +105,6 @@ class _QuestionsPageState extends State<QuestionsPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Question Type Selection
                   Text(
                     'Question Type',
                     style: theme.textTheme.bodyLarge?.copyWith(
@@ -126,7 +130,6 @@ class _QuestionsPageState extends State<QuestionsPage> {
 
                   const SizedBox(height: 24),
 
-                  // Difficulty Selection
                   Text(
                     'Difficulty Level',
                     style: theme.textTheme.bodyLarge?.copyWith(
@@ -152,7 +155,6 @@ class _QuestionsPageState extends State<QuestionsPage> {
 
                   const SizedBox(height: 32),
 
-                  // Generate Button
                   SizedBox(
                     width: double.infinity,
                     child: InkWell(
@@ -164,12 +166,12 @@ class _QuestionsPageState extends State<QuestionsPage> {
                           gradient: LinearGradient(
                             colors: _isGenerating
                                 ? [
-                              theme.disabledColor,
-                              theme.disabledColor.withOpacity(0.8),
+                              Colors.grey.shade400,
+                              Colors.grey.shade500,
                             ]
                                 : [
-                              theme.colorScheme.primary,
-                              theme.colorScheme.secondary,
+                              const Color(0xFF64B5F6),
+                              const Color(0xFF4DD0E1),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(16),
@@ -209,7 +211,6 @@ class _QuestionsPageState extends State<QuestionsPage> {
 
             const SizedBox(height: 8),
 
-            // Questions Result Section
             Container(
               color: theme.cardColor,
               padding: const EdgeInsets.all(24),

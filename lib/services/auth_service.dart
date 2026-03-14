@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,24 +15,47 @@ class AuthService {
     required String email,
     required String password,
     String? passwordConfirmation,
+    File? image, // إضافة صورة المستخدم
   }) async {
     try {
-      final response = await _apiService.dio.post(
-        '/auth/signup',
-        data: {
+      FormData formData;
+
+      if (image != null) {
+        // لو في صورة، نستخدم FormData
+        formData = FormData.fromMap({
           'name': name,
           'email': email,
           'password': password,
           'password_confirmation': passwordConfirmation ?? password,
-        },
-      );
-
-      if (response.data['token'] != null) {
-        await _saveToken(response.data['token']);
-        await _saveUser(response.data['user']);
+          'image': await MultipartFile.fromFile(image.path, filename: 'profile.jpg'),
+        });
+      } else {
+        // لو مفيش صورة، نستخدم JSON عادي
+        formData = FormData.fromMap({
+          'name': name,
+          'email': email,
+          'password': password,
+          'password_confirmation': passwordConfirmation ?? password,
+        });
       }
 
-      return response.data;
+      final response = await _apiService.dio.post(
+        '/auth/signup',
+        data: formData,
+        options: Options(
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        ),
+      );
+
+      if (response.data['success'] == true) {
+        await _saveToken(response.data['data']['token']);
+        await _saveUser(response.data['data']['user']);
+        return response.data;
+      }
+
+      throw Exception(response.data['message'] ?? 'Registration failed');
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -50,78 +74,17 @@ class AuthService {
         },
       );
 
-      // Save token and user data
-      if (response.data['token'] != null) {
-        await _saveToken(response.data['token']);
-        await _saveUser(response.data['user']);
+      if (response.data['success'] == true) {
+        await _saveToken(response.data['data']['token']);
+        await _saveUser(response.data['data']['user']);
+        return response.data;
       }
 
-      return response.data;
+      throw Exception(response.data['message'] ?? 'Login failed');
     } on DioException catch (e) {
       throw _handleError(e);
     }
   }
-
-  Future<void> logout() async {
-    try {
-      await _apiService.dio.post('/auth/logout');
-    } on DioException catch (e) {
-      debugPrint('Logout error: $e');
-    } finally {
-      // Clear local storage even if API call fails
-      await _clearAuthData();
-    }
-  }
-
-  Future<Map<String, dynamic>> refreshToken() async {
-    try {
-      final response = await _apiService.dio.post('/auth/refresh');
-      if (response.data['token'] != null) {
-        await _saveToken(response.data['token']);
-      }
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  // -------------------- User Profile --------------------
-
-  Future<Map<String, dynamic>> getCurrentUser() async {
-    try {
-      final response = await _apiService.dio.get('/me');
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> updateProfile({
-    String? name,
-    String? email,
-    String? phone,
-  }) async {
-    try {
-      final response = await _apiService.dio.put(
-        '/me',
-        data: {
-          if (name != null) 'name': name,
-          if (email != null) 'email': email,
-          if (phone != null) 'phone': phone,
-        },
-      );
-
-      if (response.data['user'] != null) {
-        await _saveUser(response.data['user']);
-      }
-
-      return response.data;
-    } on DioException catch (e) {
-      throw _handleError(e);
-    }
-  }
-
-  // -------------------- Password Management --------------------
 
   Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
@@ -135,23 +98,63 @@ class AuthService {
     }
   }
 
-  Future<Map<String, dynamic>> resetPassword({
-    required String email,
-    required String token,
-    required String password,
-    required String passwordConfirmation,
+  Future<void> logout() async {
+    try {
+      await _apiService.dio.post('/auth/logout');
+    } catch (e) {
+      debugPrint('Logout error: $e');
+    } finally {
+      await _clearAuthData();
+    }
+  }
+
+  Future<Map<String, dynamic>> getCurrentUser() async {
+    try {
+      final response = await _apiService.dio.get('/me');
+      if (response.data['success'] == true) {
+        await _saveUser(response.data['data']);
+        return response.data;
+      }
+      throw Exception('Failed to get user');
+    } on DioException catch (e) {
+      throw _handleError(e);
+    }
+  }
+
+  // -------------------- Profile Update with Image --------------------
+
+  Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    File? image,
   }) async {
     try {
+      FormData formData = FormData.fromMap({});
+
+      if (name != null) {
+        formData.fields.add(MapEntry('name', name));
+      }
+
+      if (image != null) {
+        formData.files.add(MapEntry(
+          'image',
+          await MultipartFile.fromFile(image.path, filename: 'profile.jpg'),
+        ));
+      }
+
       final response = await _apiService.dio.post(
-        '/auth/reset-password',
-        data: {
-          'email': email,
-          'token': token,
-          'password': password,
-          'password_confirmation': passwordConfirmation,
-        },
+        '/me/update',
+        data: formData,
+        options: Options(
+          headers: {'Content-Type': 'multipart/form-data'},
+        ),
       );
-      return response.data;
+
+      if (response.data['success'] == true) {
+        await _saveUser(response.data['data']);
+        return response.data;
+      }
+
+      throw Exception(response.data['message'] ?? 'Update failed');
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -198,25 +201,37 @@ class AuthService {
 
   String _handleError(DioException e) {
     if (e.response != null) {
-      // Server responded with error
       final data = e.response?.data;
       if (data is Map) {
+        if (data['success'] == false) {
+          if (data['message'] != null) {
+            return data['message'];
+          }
+          if (data['errors'] != null) {
+            final errors = data['errors'] as Map;
+            if (errors.isNotEmpty) {
+              final firstError = errors.values.first;
+              if (firstError is List && firstError.isNotEmpty) {
+                return firstError[0];
+              }
+            }
+          }
+        }
         if (data['message'] != null) {
           return data['message'];
         }
-        if (data['errors'] != null) {
-          final errors = data['errors'] as Map;
-          return errors.values.first[0];
-        }
       }
-      return 'Server error occurred'; // ✅
+      return 'Server error: ${e.response?.statusCode}';
     } else if (e.type == DioExceptionType.connectionTimeout) {
-      return 'Connection timeout'; // ✅
+      return 'Connection timeout - check your internet';
     } else if (e.type == DioExceptionType.receiveTimeout) {
-      return 'Receive timeout'; // ✅
+      return 'Server is not responding';
     } else if (e.type == DioExceptionType.cancel) {
-      return 'Request cancelled'; // ✅
+      return 'Request cancelled';
+    } else if (e.type == DioExceptionType.connectionError) {
+      return 'No internet connection';
     } else {
-      return 'Network error - check your connection'; // ✅
+      return 'Network error: ${e.message}';
     }
-  }}
+  }
+}

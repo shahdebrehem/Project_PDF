@@ -1,8 +1,9 @@
-// pages/translation_page.dart
 import 'package:flutter/material.dart';
 
 class TranslationPage extends StatefulWidget {
-  const TranslationPage({Key? key}) : super(key: key);
+  final String? fileName;
+
+  const TranslationPage({Key? key, this.fileName}) : super(key: key);
 
   @override
   State<TranslationPage> createState() => _TranslationPageState();
@@ -50,12 +51,12 @@ class _TranslationPageState extends State<TranslationPage> {
       appBar: AppBar(
         title: const Text('Translation'),
         elevation: 0,
+        backgroundColor: theme.cardColor,
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Container(
               width: double.infinity,
               color: theme.cardColor,
@@ -78,10 +79,14 @@ class _TranslationPageState extends State<TranslationPage> {
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Research_Paper_2024.pdf',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          widget.fileName ?? 'No file selected',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -92,7 +97,6 @@ class _TranslationPageState extends State<TranslationPage> {
 
             const SizedBox(height: 8),
 
-            // Language Selection
             Container(
               color: theme.cardColor,
               padding: const EdgeInsets.all(24),
@@ -120,7 +124,6 @@ class _TranslationPageState extends State<TranslationPage> {
 
             const SizedBox(height: 8),
 
-            // Translate Button
             Container(
               color: theme.cardColor,
               padding: const EdgeInsets.all(24),
@@ -135,8 +138,8 @@ class _TranslationPageState extends State<TranslationPage> {
                       gradient: LinearGradient(
                         colors: _isTranslating
                             ? [
-                          theme.disabledColor,
-                          theme.disabledColor.withOpacity(0.8),
+                          Colors.grey.shade400,
+                          Colors.grey.shade500,
                         ]
                             : const [
                           Color(0xFF64B5F6),
@@ -182,7 +185,6 @@ class _TranslationPageState extends State<TranslationPage> {
 
             const SizedBox(height: 8),
 
-            // Result Section
             Container(
               color: theme.cardColor,
               padding: const EdgeInsets.all(24),
