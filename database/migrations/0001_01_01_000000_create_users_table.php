@@ -25,7 +25,6 @@ return new class extends Migration
             $table->string('email')->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
-
         });
 
         Schema::create('sessions', function (Blueprint $table) {
@@ -36,12 +35,6 @@ return new class extends Migration
             $table->longText('payload');
             $table->integer('last_activity')->index();
         });
-
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('language', 5)->default('en')->after('email');
-            $table->string('theme', 10)->default('system')->after('language');
-        });
-
     }
 
     /**

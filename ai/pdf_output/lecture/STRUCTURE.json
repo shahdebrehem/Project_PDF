@@ -1,0 +1,65 @@
+{
+  "chapters": [],
+  "sections": [
+    {
+      "title": "**Basics of Video Representation**",
+      "pos": 1652
+    },
+    {
+      "title": "**Resolution and Aspect Ratio**",
+      "pos": 2296
+    },
+    {
+      "title": "**Color Representation**",
+      "pos": 2586
+    },
+    {
+      "title": "**Variants of YUV (4:4:4)**",
+      "pos": 3902
+    },
+    {
+      "title": "**Variants of YUV (4:2:2)**",
+      "pos": 4206
+    },
+    {
+      "title": "**Audio-Video Synchronization**",
+      "pos": 5888
+    },
+    {
+      "title": "**Audio-Video Synchronization**",
+      "pos": 6253
+    },
+    {
+      "title": "Types of Video signal",
+      "pos": 6808
+    },
+    {
+      "title": "**Analog Video Signal**",
+      "pos": 7066
+    },
+    {
+      "title": "**Ways to reduce video file size**",
+      "pos": 7420
+    },
+    {
+      "title": "**Inter-Frame Compression (Temporal Compression)**",
+      "pos": 8823
+    },
+    {
+      "title": "How Video Steganography Works?",
+      "pos": 9303
+    },
+    {
+      "title": "**Types of Steganalysis**",
+      "pos": 12196
+    },
+    {
+      "title": "**Types of Steganalysis**",
+      "pos": 12314
+    },
+    {
+      "title": "**Steganalysis methods**",
+      "pos": 12926
+    }
+  ]
+}

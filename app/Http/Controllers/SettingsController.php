@@ -69,8 +69,8 @@ public function changePassword(Request $request)
     $user->save();
 
   
-    $user->tokens()->delete();
-
+    auth()->logout();
+    
     return response()->json([
         'success' => true,
         'message' => 'OK',

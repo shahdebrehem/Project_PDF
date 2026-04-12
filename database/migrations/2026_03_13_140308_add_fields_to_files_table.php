@@ -1,5 +1,4 @@
 <?php
-// database/migrations/xxxx_add_fields_to_files_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -10,8 +9,8 @@ return new class extends Migration
     public function up()
     {
         Schema::table('files', function (Blueprint $table) {
-            $table->unsignedBigInteger('size')->nullable()->after('path');
-            $table->string('status')->default('Completed')->after('size');
+            $table->unsignedBigInteger('size')->nullable();
+            $table->string('status')->default('Completed');
         });
     }
 
