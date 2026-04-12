@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
 import 'pages/splash_screen.dart';
 
 void main() {
@@ -18,11 +20,14 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode themeMode = ThemeMode.light;
+  Locale _locale = const Locale('en');
 
   void changeTheme(ThemeMode mode) {
-    setState(() {
-      themeMode = mode;
-    });
+    setState(() => themeMode = mode);
+  }
+
+  void changeLanguage(Locale locale) {
+    setState(() => _locale = locale);
   }
 
   @override
@@ -31,25 +36,65 @@ class _MyAppState extends State<MyApp> {
       title: 'SmartPDF',
       debugShowCheckedModeBanner: false,
 
-      /// 👈 هنا التحكم في Dark / Light
+      /// Language Settings
+      locale: _locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+
+      /// Theme Settings
       themeMode: themeMode,
 
-      /// 🌞 Light Theme
+      /// Light Theme
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
         primaryColor: const Color(0xFF64B5F6),
         scaffoldBackgroundColor: Colors.white,
         fontFamily: 'Inter',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF64B5F6),
+          brightness: Brightness.light,
+        ),
+        cardColor: Colors.white,
+        dividerColor: Colors.grey.shade200,
+        textTheme: const TextTheme(
+          headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+          bodySmall: TextStyle(fontSize: 12),
+        ),
       ),
 
-      /// 🌙 Dark Theme
+      /// Dark Theme
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         primaryColor: const Color(0xFF64B5F6),
         scaffoldBackgroundColor: const Color(0xFF121212),
         fontFamily: 'Inter',
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF64B5F6),
+          brightness: Brightness.dark,
+        ),
+        cardColor: const Color(0xFF1E1E1E),
+        dividerColor: Colors.grey.shade800,
+        textTheme: const TextTheme(
+          headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          bodyLarge: TextStyle(fontSize: 16),
+          bodyMedium: TextStyle(fontSize: 14),
+          bodySmall: TextStyle(fontSize: 12),
+        ),
       ),
 
       home: const SplashScreen(),

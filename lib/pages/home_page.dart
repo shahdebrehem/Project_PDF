@@ -1,10 +1,12 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:project_flutter/services/auth_service.dart';
 import 'package:project_flutter/services/files_service.dart';
 import 'translation_page.dart';
 import 'summary_page.dart';
+import 'splash_screen.dart';
 import 'questions_page.dart';
 import 'personal_page.dart';
 import 'settings_page.dart';
@@ -17,44 +19,110 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final FilesService _filesService = FilesService();
 
   Map<String, dynamic>? _user;
-  List<Map<String, dynamic>> _recentFiles = [];
   bool _isLoading = true;
-  bool _isLoadingFiles = true;
   String? _selectedFileName;
+  late String _selectedLanguage;
 
-  final List<Feature> _features = [
-    Feature(
-      title: 'Summarize',
-      description: 'Get a concise summary of your PDF document',
-      icon: Icons.description_outlined,
-      color: const Color(0xFF64B5F6),
-      route: '/summary',
-    ),
-    Feature(
-      title: 'Translate',
-      description: 'Translate your PDF to any language',
-      icon: Icons.translate_rounded,
-      color: const Color(0xFF81C784),
-      route: '/translation',
-    ),
-    Feature(
-      title: 'Questions',
-      description: 'Generate questions from your content',
-      icon: Icons.quiz_outlined,
-      color: const Color(0xFFFFB74D),
-      route: '/questions',
-    ),
-  ];
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final currentLang = Localizations.localeOf(context).languageCode;
+    _selectedLanguage = currentLang == 'ar' ? 'arabic' : 'english';
+  }
+
+  bool get isArabic => _selectedLanguage == 'arabic';
+
+  List<Feature> get _features {
+    return [
+      Feature(
+        title: isArabic ? 'تلخيص ذكي' : 'Smart Summary',
+        description: isArabic ? 'احصل على ملخص دقيق لمستنداتك' : 'Get accurate summaries of your documents',
+        icon: Icons.auto_awesome_rounded,
+        color: const Color(0xFF6366F1),
+        route: '/summary',
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+        ),
+      ),
+      Feature(
+        title: isArabic ? 'ترجمة فورية' : 'Instant Translate',
+        description: isArabic ? 'ترجمة دقيقة لأكثر من 100 لغة' : 'Accurate translation to 100+ languages',
+        icon: Icons.language_rounded,
+        color: const Color(0xFF10B981),
+        route: '/translation',
+        gradient: const LinearGradient(
+          colors: [Color(0xFF10B981), Color(0xFF34D399)],
+        ),
+      ),
+      Feature(
+        title: isArabic ? 'أسئلة تفاعلية' : 'Smart Questions',
+        description: isArabic ? 'توليد أسئلة ذكية من المحتوى' : 'Generate intelligent questions from content',
+        icon: Icons.quiz_rounded,
+        color: const Color(0xFFF59E0B),
+        route: '/questions',
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+        ),
+      ),
+    ];
+  }
+
+  // دالة للحصول على صورة المستخدم
+  ImageProvider? _getUserAvatar() {
+    if (_user == null) return null;
+
+    // التحقق من وجود صورة مخزنة كـ Base64
+    if (_user!['avatarBytes'] != null) {
+      try {
+        Uint8List bytes = base64Decode(_user!['avatarBytes']);
+        return MemoryImage(bytes);
+      } catch (e) {
+        debugPrint('Error decoding avatar: $e');
+      }
+    }
+
+    // التحقق من وجود URL للصورة
+    if (_user!['avatar'] != null && _user!['avatar'].toString().isNotEmpty) {
+      return NetworkImage(_user!['avatar']);
+    }
+
+    return null;
   }
 
   Future<void> _loadUserData() async {
@@ -68,41 +136,63 @@ class _HomePageState extends State<HomePage> {
         _isLoading = false;
       });
 
-      await _loadRecentFiles();
       _refreshUserData();
     } else {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const SignInPage()),
+          PageTransition(child: const SignInPage(), type: PageTransitionType.fade),
         );
       }
     }
   }
 
-  Future<void> _loadRecentFiles() async {
-    setState(() => _isLoadingFiles = true);
-
-    final files = await _filesService.getRecentFiles();
-
-    if (mounted) {
-      setState(() {
-        _recentFiles = files;
-        _isLoadingFiles = false;
-      });
-    }
-  }
-
+// home_page.dart - تعديل دالة _refreshUserData
   Future<void> _refreshUserData() async {
     try {
       final response = await _authService.getCurrentUser();
       if (response['success'] == true) {
         setState(() {
           _user = response['data'];
+          print('HomePage - User data refreshed:');
+          print('  - Name: ${_user?['name']}');
+          print('  - Has avatar: ${_user?['avatarBytes'] != null}');
         });
       }
     } catch (e) {
       debugPrint('Error refreshing user: $e');
+    }
+  }
+
+// home_page.dart - إضافة دالة لتحديث البيانات عند العودة من PersonalPage
+  void _navigateToPersonalPage() async {
+    final result = await Navigator.push(
+      context,
+      PageTransition(
+        child: PersonalPage(user: _user),
+        type: PageTransitionType.slideFromRight,
+      ),
+    );
+
+    if (result != null && result is Map && result['updated'] == true) {
+      final updatedUserData = result['userData'];
+      if (updatedUserData != null) {
+        setState(() {
+          _user = updatedUserData;
+        });
+
+        // ✅ بدل saveUser، استخدم updateAvatarLocally
+        if (_user!['avatarBytes'] != null) {
+          try {
+            final bytes = base64Decode(_user!['avatarBytes']);
+            await _authService.updateAvatarLocally(bytes);
+          } catch (e) {
+            print('Error updating avatar locally: $e');
+          }
+        }
+      } else {
+        await _refreshUserData();
+      }
     }
   }
 
@@ -116,7 +206,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Color _getColorFromName(String? name) {
-    if (name == null || name.isEmpty) return const Color(0xFF64B5F6);
+    if (name == null || name.isEmpty) return const Color(0xFF6366F1);
     final hash = name.hashCode.abs();
     final hue = hash % 360;
     return HSLColor.fromAHSL(1.0, hue.toDouble(), 0.7, 0.5).toColor();
@@ -125,20 +215,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Logout'),
-          ),
-        ],
+      builder: (context) => _buildAnimatedDialog(
+        context,
+        title: isArabic ? 'تسجيل الخروج' : 'Logout',
+        content: isArabic ? 'هل أنت متأكد من تسجيل الخروج؟' : 'Are you sure you want to logout?',
+        confirmText: isArabic ? 'تسجيل الخروج' : 'Logout',
+        isDestructive: true,
       ),
     );
 
@@ -147,81 +229,49 @@ class _HomePageState extends State<HomePage> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const SignInPage()),
+          PageTransition(child: const SplashScreen(), type: PageTransitionType.fade),
         );
       }
     }
   }
 
-  // pages/home_page.dart - تعديل دالة _pickPDF
   Future<void> _pickPDF() async {
     try {
-      // استخدام FilePicker لاختيار ملف PDF
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
         allowMultiple: false,
+        withData: true,
       );
 
-      if (result == null) {
-        return; // المستخدم ألغى الاختيار
-      }
+      if (result == null) return;
 
-      String? filePath = result.files.single.path;
-      if (filePath == null) return;
+      final pickedFile = result.files.single;
+      final bytes = pickedFile.bytes;
+      final fileName = pickedFile.name;
 
-      setState(() {
-        _isLoadingFiles = true;
-      });
+      if (bytes == null) return;
 
-      // رفع الملف
-      final uploadedFile = await _filesService.uploadFile(
-        File(filePath),
+      final uploadedFile = await _filesService.uploadFileBytes(
+        bytes,
+        fileName: fileName,
         type: 'PDF',
       );
 
       if (uploadedFile != null) {
-        setState(() {
-          _selectedFileName = result.files.single.name;
-        });
-
-        // تحديث قائمة الملفات
-        await _loadRecentFiles();
-
+        setState(() => _selectedFileName = fileName);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('File uploaded successfully: ${result.files.single.name}'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          _showSuccessSnackBar('$fileName ${isArabic ? 'تم رفعه بنجاح' : 'uploaded successfully'}');
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to upload file'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _showErrorSnackBar(isArabic ? 'فشل رفع الملف' : 'Failed to upload file');
         }
       }
     } catch (e) {
       print('Error picking file: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingFiles = false;
-        });
+        _showErrorSnackBar('Error: $e');
       }
     }
   }
@@ -232,56 +282,154 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Future<void> _deleteFile(String fileId, String fileName) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete File'),
-        content: Text('Are you sure you want to delete "$fileName"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
       ),
     );
+  }
 
-    if (confirm == true) {
-      final success = await _filesService.deleteFile(fileId);
-      if (success) {
-        _loadRecentFiles();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('File deleted successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      }
-    }
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedDialog(BuildContext context, {
+    required String title,
+    required String content,
+    required String confirmText,
+    bool isDestructive = false,
+  }) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: ScaleTransition(
+        scale: CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? Colors.red : Colors.green).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isDestructive ? Icons.warning_rounded : Icons.check_circle_rounded,
+                  color: isDestructive ? Colors.red : Colors.green,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                content,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDestructive ? Colors.red : Theme.of(context).primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(confirmText),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final avatarImage = _getUserAvatar();
 
     if (_isLoading) {
       return Scaffold(
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(),
-              const SizedBox(height: 20),
-              Text('Loading...', style: theme.textTheme.bodyMedium),
-            ],
+          child: TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 800),
+            builder: (context, double value, child) {
+              return Opacity(
+                opacity: value,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: CircularProgressIndicator(strokeWidth: 3),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      isArabic ? 'جاري التحميل...' : 'Loading...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       );
@@ -289,190 +437,265 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('SmartPDF'),
-        backgroundColor: theme.cardColor,
-        foregroundColor: theme.textTheme.bodyLarge?.color,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_rounded),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PersonalPage(user: _user),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(theme, avatarImage),
       drawer: AppDrawer(
         user: _user,
         onLogout: _logout,
+        selectedLanguage: _selectedLanguage,
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadRecentFiles,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                color: theme.cardColor,
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Welcome back,',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                      ),
-                    ),
-                    Text(
-                      _user?['name'] ?? 'User',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _user?['email'] ?? '',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Container(
-                width: double.infinity,
-                color: theme.cardColor,
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-                child: Column(
-                  children: [
-                    Text(
-                      'Upload your PDF',
-                      style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Choose a PDF file to get started',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    if (_selectedFileName == null)
-                      _buildUploadButton(theme)
-                    else
-                      _buildSelectedFile(theme),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              Container(
-                color: theme.scaffoldBackgroundColor,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('AI Features', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 24),
-                    ..._features.map((feature) => _buildFeatureItem(context, theme, feature)),
-                    const SizedBox(height: 32),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Recent Files',
-                          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        if (_recentFiles.isNotEmpty)
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => PersonalPage(user: _user),
-                                ),
-                              );
-                            },
-                            child: const Text('View All'),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    if (_isLoadingFiles)
-                      const Center(child: Padding(
-                        padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator(),
-                      ))
-                    else if (_recentFiles.isEmpty)
-                      _buildEmptyFiles(theme)
-                    else
-                      ..._recentFiles.take(5).map((file) => _buildRecentFileItem(theme, file)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+      body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildHeaderSection(theme),
+            ),
+            SlideTransition(
+              position: _slideAnimation,
+              child: _buildUploadSection(theme),
+            ),
+            const SizedBox(height: 8),
+            _buildFeaturesSection(theme),
+            const SizedBox(height: 32),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildUploadButton(ThemeData theme) {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF64B5F6), Color(0xFF4DD0E1)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.5 : 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+  PreferredSizeWidget _buildAppBar(ThemeData theme, ImageProvider? avatarImage) {
+    return AppBar(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'SP',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isArabic ? 'سمارت بي دي إف' : 'SmartPDF',
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: _pickPDF,
-          borderRadius: BorderRadius.circular(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
-                  shape: BoxShape.circle,
+      backgroundColor: theme.cardColor,
+      foregroundColor: theme.textTheme.bodyLarge?.color,
+      elevation: 0,
+      actions: [
+        Hero(
+          tag: 'profile_avatar',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _navigateToPersonalPage,  // ✅ استخدام الدالة المعدلة
+              borderRadius: BorderRadius.circular(30),
+              child: Container(
+                margin: const EdgeInsets.only(right: 16),
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundImage: avatarImage,
+                  backgroundColor: _getColorFromName(_user?['name']).withOpacity(0.2),
+                  child: avatarImage == null
+                      ? Text(
+                    _getInitials(_user?['name']),
+                    style: TextStyle(
+                      color: _getColorFromName(_user?['name']),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                      : null,
                 ),
-                child: const Icon(Icons.upload_file_rounded, size: 48, color: Colors.white),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Upload File',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderSection(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isArabic ? 'مرحباً بعودتك،' : 'Welcome back,',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.grey[600],
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _user?['name'] ?? (isArabic ? 'مستخدم' : 'User'),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 32,
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.email_rounded,
+                  size: 16,
+                  color: Theme.of(context).primaryColor,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _user?['email'] ?? '',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadSection(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+      child: Column(
+        children: [
+          if (_selectedFileName == null)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutCubic,
+              child: _buildUploadButton(theme),
+            )
+          else
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeOutCubic,
+              child: _buildSelectedFile(theme),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadButton(ThemeData theme) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _pickPDF,
+        child: Container(
+          width: double.infinity,
+          height: 220,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+            ),
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6366F1).withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                top: -20,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: -30,
+                bottom: -30,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TweenAnimationBuilder(
+                      tween: Tween<double>(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 600),
+                      builder: (context, double value, child) {
+                        return Transform.scale(
+                          scale: value,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.cloud_upload_rounded,
+                              size: 48,
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      isArabic ? 'رفع ملف PDF' : 'Upload PDF',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isArabic ? 'اسحب الملف أو انقر للاختيار' : 'Drag or click to select',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -487,19 +710,29 @@ class _HomePageState extends State<HomePage> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF81C784).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF81C784), width: 2),
+        gradient: LinearGradient(
+          colors: [const Color(0xFF10B981).withOpacity(0.1), const Color(0xFF10B981).withOpacity(0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFF10B981), width: 2),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF81C784),
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFF10B981),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF10B981).withOpacity(0.3),
+                  blurRadius: 8,
+                ),
+              ],
             ),
-            child: const Icon(Icons.check_rounded, color: Colors.white, size: 24),
+            child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -508,260 +741,209 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   _selectedFileName!,
-                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.5,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Ready to process',
-                  style: TextStyle(color: Color(0xFF81C784), fontSize: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        size: 12,
+                        color: const Color(0xFF10B981),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isArabic ? 'جاهز للمعالجة' : 'Ready to process',
+                        style: TextStyle(
+                          color: const Color(0xFF10B981),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
             onPressed: _changePDF,
-            icon: Icon(Icons.close_rounded, color: theme.iconTheme.color?.withOpacity(0.7)),
+            icon: Icon(Icons.close_rounded, color: theme.iconTheme.color?.withOpacity(0.6)),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.grey.withOpacity(0.1),
+              shape: const CircleBorder(),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyFiles(ThemeData theme) {
+  Widget _buildFeaturesSection(ThemeData theme) {
+    List<Widget> featureWidgets = [];
+    for (int i = 0; i < _features.length; i++) {
+      featureWidgets.add(
+          _buildFeatureItem(context, theme, _features[i], i)
+      );
+    }
+
     return Container(
-      padding: const EdgeInsets.all(30),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      padding: const EdgeInsets.all(24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.folder_open_rounded,
-            size: 50,
-            color: theme.textTheme.bodyMedium?.color?.withOpacity(0.3),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'No files yet',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Upload your first PDF to get started',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeatureItem(BuildContext context, ThemeData theme, Feature feature) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.5 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            if (_selectedFileName == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Please upload a PDF first'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-              return;
-            }
-
-            if (feature.route == '/translation') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TranslationPage(fileName: _selectedFileName),
-                ),
-              );
-            } else if (feature.route == '/summary') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SummaryPage(fileName: _selectedFileName),
-                ),
-              );
-            } else if (feature.route == '/questions') {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => QuestionsPage(fileName: _selectedFileName),
-                ),
-              );
-            }
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: feature.color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(feature.icon, color: feature.color, size: 32),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(feature.title,
-                          style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Text(
-                        feature.description,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.arrow_forward_ios_rounded,
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5), size: 16),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRecentFileItem(ThemeData theme, Map<String, dynamic> file) {
-    IconData getFileIcon() {
-      switch (file['type']?.toLowerCase()) {
-        case 'summary':
-          return Icons.description_outlined;
-        case 'translation':
-          return Icons.translate_rounded;
-        case 'questions':
-          return Icons.quiz_outlined;
-        default:
-          return Icons.description_outlined;
-      }
-    }
-
-    Color getFileColor() {
-      switch (file['type']?.toLowerCase()) {
-        case 'summary':
-          return const Color(0xFF64B5F6);
-        case 'translation':
-          return const Color(0xFF81C784);
-        case 'questions':
-          return const Color(0xFFFFB74D);
-        default:
-          return Colors.grey;
-      }
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.5 : 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: getFileColor().withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(getFileIcon(), color: getFileColor(), size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  file['name'],
-                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(
-                      file['type'],
-                      style: TextStyle(color: getFileColor(), fontSize: 12, fontWeight: FontWeight.w500),
-                    ),
-                    Text(
-                      ' • ',
-                      style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5)),
-                    ),
-                    Text(
-                      file['date'],
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert_rounded, color: theme.iconTheme.color?.withOpacity(0.7)),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _deleteFile(file['id'], file['name']);
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'open',
-                child: Row(
-                  children: [Icon(Icons.visibility, size: 20), SizedBox(width: 8), Text('Open')],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isArabic ? ' الخدمات الذكية' : ' Smart Services',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [Icon(Icons.delete, size: 20, color: Colors.red), SizedBox(width: 8), Text('Delete', style: TextStyle(color: Colors.red))],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isArabic ? 'مدعوم بالذكاء الاصطناعي' : 'AI Powered',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          ...featureWidgets,
         ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(BuildContext context, ThemeData theme, Feature feature, int index) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: GestureDetector(
+        onTap: () {
+          if (_selectedFileName == null) {
+            _showErrorSnackBar(isArabic ? 'الرجاء رفع ملف PDF أولاً' : 'Please upload a PDF first');
+            return;
+          }
+
+          Widget page;
+          if (feature.route == '/translation') {
+            page = TranslationPage(fileName: _selectedFileName);
+          } else if (feature.route == '/summary') {
+            page = SummaryPage(fileName: _selectedFileName);
+          } else {
+            page = QuestionsPage(fileName: _selectedFileName);
+          }
+
+          Navigator.push(
+            context,
+            PageTransition(
+              child: page,
+              type: PageTransitionType.slideFromRight,
+              duration: const Duration(milliseconds: 400),
+            ),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [feature.color.withOpacity(0.1), feature.color.withOpacity(0.05)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: feature.color.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: feature.gradient,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: feature.color.withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Icon(feature.icon, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          feature.title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          feature.description,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: feature.color.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      color: feature.color,
+                      size: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -773,6 +955,7 @@ class Feature {
   final IconData icon;
   final Color color;
   final String route;
+  final LinearGradient gradient;
 
   Feature({
     required this.title,
@@ -780,14 +963,18 @@ class Feature {
     required this.icon,
     required this.color,
     required this.route,
+    required this.gradient,
   });
 }
 
-class AppDrawer extends StatelessWidget{
+class AppDrawer extends StatelessWidget {
   final Map<String, dynamic>? user;
   final VoidCallback onLogout;
+  final String selectedLanguage;
 
-  const AppDrawer({Key? key, required this.user, required this.onLogout}) : super(key: key);
+  const AppDrawer({Key? key, required this.user, required this.onLogout, required this.selectedLanguage}) : super(key: key);
+
+  bool get isArabic => selectedLanguage == 'arabic';
 
   String _getInitials(String? name) {
     if (name == null || name.isEmpty) return 'U';
@@ -799,107 +986,189 @@ class AppDrawer extends StatelessWidget{
   }
 
   Color _getColorFromName(String? name) {
-    if (name == null || name.isEmpty) return const Color(0xFF64B5F6);
+    if (name == null || name.isEmpty) return const Color(0xFF6366F1);
     final hash = name.hashCode.abs();
     final hue = hash % 360;
     return HSLColor.fromAHSL(1.0, hue.toDouble(), 0.7, 0.5).toColor();
   }
 
+  ImageProvider? _getUserAvatar() {
+    if (user == null) return null;
+
+    if (user!['avatarBytes'] != null) {
+      try {
+        Uint8List bytes = base64Decode(user!['avatarBytes']);
+        return MemoryImage(bytes);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    if (user!['avatar'] != null && user!['avatar'].toString().isNotEmpty) {
+      return NetworkImage(user!['avatar']);
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final avatarImage = _getUserAvatar();
 
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          DrawerHeader(
+          Container(
+            width: double.infinity,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF64B5F6), Color(0xFF4DD0E1)],
+                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.white,
-                  child: Text(
-                    _getInitials(user?['name']),
-                    style: TextStyle(
-                      color: _getColorFromName(user?['name']),
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Hero(
+                      tag: 'profile_avatar',
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundImage: avatarImage,
+                        backgroundColor: Colors.white,
+                        child: avatarImage == null
+                            ? Text(
+                          _getInitials(user?['name']),
+                          style: TextStyle(
+                            color: _getColorFromName(user?['name']),
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                            : null,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    Text(
+                      user?['name'] ?? (isArabic ? 'مستخدم' : 'User'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user?['email'] ?? '',
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  user?['name'] ?? 'User',
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _buildDrawerItem(
+                  context,
+                  Icons.home_rounded,
+                  isArabic ? 'الرئيسية' : 'Home',
+                      () => Navigator.pop(context),
                 ),
-                Text(
-                  user?['email'] ?? 'user@example.com',
-                  style: const TextStyle(color: Colors.white70),
+                _buildDrawerItem(
+                  context,
+                  Icons.folder_rounded,
+                  isArabic ? 'مستنداتي' : 'My Documents',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      PageTransition(
+                        child: PersonalPage(user: user),
+                        type: PageTransitionType.slideFromRight,
+                      ),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.translate_rounded,
+                  isArabic ? 'الترجمة' : 'Translation',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      PageTransition(
+                        child: const TranslationPage(),
+                        type: PageTransitionType.slideFromRight,
+                      ),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.auto_awesome_rounded,
+                  isArabic ? 'ملخص' : 'Summary',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      PageTransition(
+                        child: const SummaryPage(),
+                        type: PageTransitionType.slideFromRight,
+                      ),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.quiz_rounded,
+                  isArabic ? 'الأسئلة' : 'Questions',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      PageTransition(
+                        child: const QuestionsPage(),
+                        type: PageTransitionType.slideFromRight,
+                      ),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  Icons.settings_rounded,
+                  isArabic ? 'الإعدادات' : 'Settings',
+                      () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      PageTransition(
+                        child: const SettingsPage(),
+                        type: PageTransitionType.slideFromRight,
+                      ),
+                    );
+                  },
+                ),
+                const Divider(),
+                _buildDrawerItem(
+                  context,
+                  Icons.logout_rounded,
+                  isArabic ? 'تسجيل الخروج' : 'Logout',
+                      () {
+                    Navigator.pop(context);
+                    onLogout();
+                  },
+                  color: Colors.red,
                 ),
               ],
             ),
-          ),
-          _buildDrawerItem(
-            context,
-            Icons.home_rounded,
-            'Home',
-                () => Navigator.pop(context),
-            theme: theme,
-          ),
-          _buildDrawerItem(
-            context,
-            Icons.person_rounded,
-            'My Documents',
-                () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => PersonalPage(user: user)),
-              );
-            },
-              theme: theme),
-          _buildDrawerItem(context, Icons.translate_rounded, 'Translation', () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const TranslationPage()));
-          }, theme: theme),
-          _buildDrawerItem(context, Icons.summarize_rounded, 'Summary', () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const SummaryPage()));
-          }, theme: theme),
-          _buildDrawerItem(context, Icons.quiz_rounded, 'Questions', () {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => const QuestionsPage()));
-          }, theme: theme),
-          _buildDrawerItem(
-            context,
-            Icons.settings_rounded,
-            'Settings',
-                () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsPage()),
-              );
-            },
-            theme: theme,
-          ),
-          const Divider(),
-          _buildDrawerItem(
-            context,
-            Icons.logout_rounded,
-            'Logout',
-                () {
-              Navigator.pop(context);
-              onLogout();
-            },
-            color: Colors.red,
-            theme: theme,
           ),
         ],
       ),
@@ -912,12 +1181,86 @@ class AppDrawer extends StatelessWidget{
       String title,
       VoidCallback onTap, {
         Color? color,
-        required ThemeData theme,
       }) {
     return ListTile(
-      leading: Icon(icon, color: color ?? theme.iconTheme.color),
-      title: Text(title, style: TextStyle(color: color ?? theme.textTheme.bodyLarge?.color)),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: (color ?? Theme.of(context).primaryColor).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color ?? Theme.of(context).primaryColor, size: 20),
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: color ?? Theme.of(context).textTheme.bodyLarge?.color,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
       onTap: onTap,
     );
+  }
+}
+
+// Custom Page Transition
+enum PageTransitionType { slideFromRight, slideFromLeft, fade, scale }
+
+class PageTransition extends PageRouteBuilder {
+  final Widget child;
+  final PageTransitionType type;
+  final Duration duration;
+
+  PageTransition({
+    required this.child,
+    this.type = PageTransitionType.slideFromRight,
+    this.duration = const Duration(milliseconds: 400),
+  }) : super(
+    transitionDuration: duration,
+    pageBuilder: (context, animation, secondaryAnimation) => child,
+  );
+
+  @override
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) {
+    switch (type) {
+      case PageTransitionType.slideFromRight:
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        );
+      case PageTransitionType.slideFromLeft:
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        );
+      case PageTransitionType.fade:
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      case PageTransitionType.scale:
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.95, end: 1).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          ),
+          child: FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+        );
+    }
   }
 }

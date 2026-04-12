@@ -2,6 +2,7 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// api_service.dart - لا يحتاج تعديل كبير، لكن تأكد من الـ baseUrl
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -12,10 +13,8 @@ class ApiService {
 
   late Dio dio;
 
-  // حددي البيئة المناسبة
-  static const String baseUrl = 'http://10.0.2.2:8000/api'; // للـ Emulator
-  // static const String baseUrl = 'http://localhost:8000/api'; // للـ iOS Simulator
-  // static const String baseUrl = 'http://192.168.1.x:8000/api'; // للجهاز الحقيقي
+  // ✅ تأكد من أن هذا الـ IP صحيح (عنوان جهاز السيرفر)
+  static const String baseUrl = 'http://192.168.1.176:8000/api';
 
   bool _initialized = false;
 
@@ -39,16 +38,23 @@ class ApiService {
         final token = prefs.getString('auth_token');
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
+          print('🔑 Token added to request: ${options.method} ${options.path}');
+        } else {
+          print('⚠️ No token found for request: ${options.method} ${options.path}');
         }
         print('🌐 Request: ${options.method} ${options.path}');
+        print('📦 Headers: ${options.headers}');
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        print('✅ Response: ${response.statusCode}');
+        print('✅ Response: ${response.statusCode} - ${response.requestOptions.path}');
         return handler.next(response);
       },
       onError: (DioException e, handler) {
         print('❌ Error: ${e.message}');
+        print('Status: ${e.response?.statusCode}');
+        print('URL: ${e.requestOptions.path}');
+        print('Response data: ${e.response?.data}');
         return handler.next(e);
       },
     ));

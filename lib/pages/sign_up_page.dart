@@ -1,8 +1,9 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'home_page.dart';
 import '../services/auth_service.dart';
+import '../l10n/app_localizations.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({Key? key}) : super(key: key);
@@ -11,7 +12,8 @@ class SignUpPage extends StatefulWidget {
   State<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
+class _SignUpPageState extends State<SignUpPage>
+    with SingleTickerProviderStateMixin {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -21,10 +23,55 @@ class _SignUpPageState extends State<SignUpPage> {
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _errorMessage;
-  File? _selectedImage; // ✅ الصورة المختارة
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
-  // ✅ دالة اختيار الصورة
+  // Image handling with bytes
+  Uint8List? _selectedImageBytes;
+  String? _selectedImageName;
+  late String _currentLanguage;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _currentLanguage = Localizations.localeOf(context).languageCode;
+  }
+
+  bool get isArabic => _currentLanguage == 'ar';
+
   Future<void> _pickImage() async {
     try {
       final XFile? pickedImage = await _imagePicker.pickImage(
@@ -35,25 +82,58 @@ class _SignUpPageState extends State<SignUpPage> {
       );
 
       if (pickedImage != null) {
+        final bytes = await pickedImage.readAsBytes();
         setState(() {
-          _selectedImage = File(pickedImage.path);
+          _selectedImageBytes = bytes;
+          _selectedImageName = pickedImage.name;
         });
       }
     } catch (e) {
       print('Error picking image: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to pick image'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        _showErrorSnackBar(isArabic ? 'فشل اختيار الصورة' : 'Failed to pick image');
+      }
     }
   }
 
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
@@ -61,25 +141,20 @@ class _SignUpPageState extends State<SignUpPage> {
     });
 
     try {
-      final response = await _authService.signUp(
+      await _authService.signUp(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
         passwordConfirmation: _confirmPasswordController.text,
-        image: _selectedImage, // ✅ تمرير الصورة
+        imageBytes: _selectedImageBytes,
+        imageName: _selectedImageName,
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-
+        _showSuccessSnackBar(isArabic ? 'تم إنشاء الحساب بنجاح' : 'Account created successfully');
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
+          PageTransition(child: const HomePage(), type: PageTransitionType.slideFromRight),
         );
       }
     } catch (e) {
@@ -87,12 +162,11 @@ class _SignUpPageState extends State<SignUpPage> {
         setState(() {
           _errorMessage = e.toString().replaceAll('Exception: ', '');
         });
+        _showErrorSnackBar(_errorMessage!);
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -100,368 +174,579 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final localizations = AppLocalizations.of(context)!;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              child: IntrinsicHeight(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      // Header
-                      Container(
-                        width: double.infinity,
-                        height: constraints.maxHeight * 0.35,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF64B5F6),
-                              Color(0xFF4DD0E1),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(30),
-                            bottomRight: Radius.circular(30),
-                          ),
-                        ),
-                        child: SafeArea(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Align(
-                                alignment: Alignment.topLeft,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 16, bottom: 20),
-                                  child: InkWell(
-                                    onTap: () => Navigator.pop(context),
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.arrow_back_rounded,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+    return Directionality(
+      textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        /// ===== Header =====
+                        FadeTransition(
+                          opacity: _fadeAnimation,
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
                               ),
-
-                              // ✅ اختيار الصورة
-                              GestureDetector(
-                                onTap: _pickImage,
-                                child: Stack(
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(40),
+                                bottomRight: Radius.circular(40),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF6366F1).withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: SafeArea(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 24),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      width: 80,
-                                      height: 80,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withOpacity(0.2),
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 3,
+                                    /// Back button
+                                    Align(
+                                      alignment: Alignment.topLeft,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 20, top: 8),
+                                        child: GestureDetector(
+                                          onTap: () => Navigator.pop(context),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.2),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.arrow_back_rounded,
+                                              color: Colors.white,
+                                              size: 24,
+                                            ),
+                                          ),
                                         ),
-                                        image: _selectedImage != null
-                                            ? DecorationImage(
-                                          image: FileImage(_selectedImage!),
-                                          fit: BoxFit.cover,
-                                        )
-                                            : null,
                                       ),
-                                      child: _selectedImage == null
-                                          ? const Icon(
-                                        Icons.person_add_rounded,
-                                        size: 40,
+                                    ),
+
+                                    const SizedBox(height: 16),
+
+                                    /// Profile Image with picker
+                                    GestureDetector(
+                                      onTap: _pickImage,
+                                      child: TweenAnimationBuilder(
+                                        tween: Tween<double>(begin: 0, end: 1),
+                                        duration: const Duration(milliseconds: 600),
+                                        builder: (context, double value, child) {
+                                          return Transform.scale(
+                                            scale: value,
+                                            child: Stack(
+                                              children: [
+                                                Container(
+                                                  width: 100,
+                                                  height: 100,
+                                                  decoration: BoxDecoration(
+                                                    shape: BoxShape.circle,
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        Colors.white.withOpacity(0.2),
+                                                        Colors.white.withOpacity(0.1),
+                                                      ],
+                                                    ),
+                                                    border: Border.all(
+                                                      color: Colors.white,
+                                                      width: 3,
+                                                    ),
+                                                    image: _selectedImageBytes != null
+                                                        ? DecorationImage(
+                                                      image: MemoryImage(_selectedImageBytes!),
+                                                      fit: BoxFit.cover,
+                                                    )
+                                                        : null,
+                                                  ),
+                                                  child: _selectedImageBytes == null
+                                                      ? const Icon(
+                                                    Icons.person_add_rounded,
+                                                    size: 50,
+                                                    color: Colors.white,
+                                                  )
+                                                      : null,
+                                                ),
+                                                Positioned(
+                                                  bottom: 0,
+                                                  right: 0,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.all(6),
+                                                    decoration: const BoxDecoration(
+                                                      color: Colors.white,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                    child: Icon(
+                                                      Icons.camera_alt,
+                                                      size: 18,
+                                                      color: const Color(0xFF6366F1),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      isArabic ? 'اضغط لإضافة صورة' : 'Tap to add photo',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white.withOpacity(0.9),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      localizations.createAccount,
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
                                         color: Colors.white,
-                                      )
-                                          : null,
-                                    ),
-                                    Positioned(
-                                      bottom: 0,
-                                      right: 0,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          Icons.camera_alt,
-                                          size: 16,
-                                          color: theme.primaryColor,
-                                        ),
+                                        letterSpacing: -0.5,
                                       ),
                                     ),
+                                    const SizedBox(height: 8),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 32),
+                                      child: Text(
+                                        localizations.signUpToStart,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white.withOpacity(0.9),
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Tap to add photo',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Create Account',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Sign up to get started',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
 
-                      // Form
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 24),
-
-                              if (_errorMessage != null) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade50,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.red.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.error_outline, color: Colors.red.shade700),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          _errorMessage!,
-                                          style: TextStyle(color: Colors.red.shade700),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                              ],
-
-                              _inputContainer(
-                                context,
-                                child: TextFormField(
-                                  controller: _nameController,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Name is required';
-                                    }
-                                    return null;
-                                  },
-                                  decoration: const InputDecoration(
-                                    labelText: 'Full Name',
-                                    prefixIcon: Icon(Icons.person_rounded),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.all(20),
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              _inputContainer(
-                                context,
-                                child: TextFormField(
-                                  controller: _emailController,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Email is required';
-                                    }
-                                    if (!value.contains('@') || !value.contains('.')) {
-                                      return 'Enter a valid email';
-                                    }
-                                    return null;
-                                  },
-                                  decoration: const InputDecoration(
-                                    labelText: 'Email Address',
-                                    prefixIcon: Icon(Icons.email_rounded),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.all(20),
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              _inputContainer(
-                                context,
-                                child: TextFormField(
-                                  controller: _passwordController,
-                                  obscureText: true,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Password is required';
-                                    }
-                                    if (value.length < 8) {
-                                      return 'Password must be at least 8 characters';
-                                    }
-                                    return null;
-                                  },
-                                  decoration: const InputDecoration(
-                                    labelText: 'Password',
-                                    prefixIcon: Icon(Icons.lock_rounded),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.all(20),
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              _inputContainer(
-                                context,
-                                child: TextFormField(
-                                  controller: _confirmPasswordController,
-                                  obscureText: true,
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please confirm your password';
-                                    }
-                                    if (value != _passwordController.text) {
-                                      return 'Passwords do not match';
-                                    }
-                                    return null;
-                                  },
-                                  decoration: const InputDecoration(
-                                    labelText: 'Confirm Password',
-                                    prefixIcon: Icon(Icons.lock_rounded),
-                                    border: InputBorder.none,
-                                    contentPadding: EdgeInsets.all(20),
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 32),
-
-                              // Sign Up Button
-                              SizedBox(
-                                width: double.infinity,
-                                height: 56,
-                                child: InkWell(
-                                  onTap: _isLoading ? null : _signUp,
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: _isLoading
-                                            ? [
-                                          Colors.grey.shade400,
-                                          Colors.grey.shade500
-                                        ]
-                                            : const [
-                                          Color(0xFF64B5F6),
-                                          Color(0xFF4DD0E1)
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Center(
-                                      child: _isLoading
-                                          ? const CircularProgressIndicator(
-                                        color: Colors.white,
-                                      )
-                                          : const Text(
-                                        'Create Account',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                        /// ===== Form =====
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: SlideTransition(
+                              position: _slideAnimation,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    "Already have an account?",
-                                    style: theme.textTheme.bodyMedium,
+                                  const SizedBox(height: 8),
+
+                                  /// Error Message with animation
+                                  if (_errorMessage != null)
+                                    TweenAnimationBuilder(
+                                      tween: Tween<double>(begin: 0, end: 1),
+                                      duration: const Duration(milliseconds: 300),
+                                      builder: (context, double value, child) {
+                                        return Transform.translate(
+                                          offset: Offset(0, (1 - value) * -20),
+                                          child: Opacity(
+                                            opacity: value,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(16),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.shade50,
+                                                borderRadius: BorderRadius.circular(16),
+                                                border: Border.all(color: Colors.red.shade200),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.error_outline, color: Colors.red.shade700),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    child: Text(
+                                                      _errorMessage!,
+                                                      style: TextStyle(color: Colors.red.shade700),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+
+                                  if (_errorMessage != null) const SizedBox(height: 20),
+
+                                  /// Full Name
+                                  _inputContainer(
+                                    theme,
+                                    child: TextFormField(
+                                      controller: _nameController,
+                                      enabled: !_isLoading,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return isArabic ? 'الاسم مطلوب' : 'Name is required';
+                                        }
+                                        return null;
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: localizations.fullName,
+                                        prefixIcon: Icon(
+                                          Icons.person_rounded,
+                                          color: theme.primaryColor,
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.all(20),
+                                        focusedBorder: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                      ),
+                                    ),
                                   ),
-                                  TextButton(
-                                    onPressed: _isLoading ? null : () => Navigator.pop(context),
-                                    child: const Text('Sign In'),
+
+                                  const SizedBox(height: 16),
+
+                                  /// Email
+                                  _inputContainer(
+                                    theme,
+                                    child: TextFormField(
+                                      controller: _emailController,
+                                      keyboardType: TextInputType.emailAddress,
+                                      enabled: !_isLoading,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return isArabic ? 'البريد الإلكتروني مطلوب' : 'Email is required';
+                                        }
+                                        if (!value.contains('@') || !value.contains('.')) {
+                                          return isArabic ? 'أدخل بريداً إلكترونياً صحيحاً' : 'Enter a valid email';
+                                        }
+                                        return null;
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: localizations.emailAddress,
+                                        prefixIcon: Icon(
+                                          Icons.email_rounded,
+                                          color: theme.primaryColor,
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.all(20),
+                                        focusedBorder: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  /// Password
+                                  _inputContainer(
+                                    theme,
+                                    child: TextFormField(
+                                      controller: _passwordController,
+                                      obscureText: _obscurePassword,
+                                      enabled: !_isLoading,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return isArabic ? 'كلمة المرور مطلوبة' : 'Password is required';
+                                        }
+                                        if (value.length < 8) {
+                                          return isArabic ? 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' : 'Password must be at least 8 characters';
+                                        }
+                                        return null;
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: localizations.password,
+                                        prefixIcon: Icon(
+                                          Icons.lock_rounded,
+                                          color: theme.primaryColor,
+                                        ),
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            _obscurePassword
+                                                ? Icons.visibility_off_rounded
+                                                : Icons.visibility_rounded,
+                                            color: theme.primaryColor,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscurePassword = !_obscurePassword;
+                                            });
+                                          },
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.all(20),
+                                        focusedBorder: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 16),
+
+                                  /// Confirm Password
+                                  _inputContainer(
+                                    theme,
+                                    child: TextFormField(
+                                      controller: _confirmPasswordController,
+                                      obscureText: _obscureConfirmPassword,
+                                      enabled: !_isLoading,
+                                      validator: (value) {
+                                        if (value == null || value.isEmpty) {
+                                          return isArabic ? 'الرجاء تأكيد كلمة المرور' : 'Please confirm your password';
+                                        }
+                                        if (value != _passwordController.text) {
+                                          return isArabic ? 'كلمة المرور غير متطابقة' : 'Passwords do not match';
+                                        }
+                                        return null;
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: isArabic ? 'تأكيد كلمة المرور' : 'Confirm Password',
+                                        prefixIcon: Icon(
+                                          Icons.lock_rounded,
+                                          color: theme.primaryColor,
+                                        ),
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            _obscureConfirmPassword
+                                                ? Icons.visibility_off_rounded
+                                                : Icons.visibility_rounded,
+                                            color: theme.primaryColor,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _obscureConfirmPassword = !_obscureConfirmPassword;
+                                            });
+                                          },
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: const EdgeInsets.all(20),
+                                        focusedBorder: InputBorder.none,
+                                        enabledBorder: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 28),
+
+                                  /// Sign Up Button
+                                  TweenAnimationBuilder(
+                                    tween: Tween<double>(begin: 0, end: 1),
+                                    duration: const Duration(milliseconds: 700),
+                                    builder: (context, double value, child) {
+                                      return Transform.translate(
+                                        offset: Offset(0, (1 - value) * 40),
+                                        child: Opacity(
+                                          opacity: value,
+                                          child: SizedBox(
+                                            width: double.infinity,
+                                            height: 56,
+                                            child: GestureDetector(
+                                              onTap: _isLoading ? null : _signUp,
+                                              child: AnimatedContainer(
+                                                duration: const Duration(milliseconds: 300),
+                                                decoration: BoxDecoration(
+                                                  gradient: _isLoading
+                                                      ? LinearGradient(
+                                                    colors: [Colors.grey.shade400, Colors.grey.shade500],
+                                                  )
+                                                      : const LinearGradient(
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                                                  ),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                  boxShadow: _isLoading
+                                                      ? []
+                                                      : [
+                                                    BoxShadow(
+                                                      color: const Color(0xFF6366F1).withOpacity(0.4),
+                                                      blurRadius: 20,
+                                                      offset: const Offset(0, 8),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: Center(
+                                                  child: _isLoading
+                                                      ? const SizedBox(
+                                                    width: 24,
+                                                    height: 24,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2.5,
+                                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                                    ),
+                                                  )
+                                                      : Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.person_add_rounded,
+                                                        color: Colors.white,
+                                                        size: 20,
+                                                      ),
+                                                      const SizedBox(width: 10),
+                                                      Text(
+                                                        localizations.createAccount,
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 16,
+                                                          letterSpacing: -0.3,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+
+                                  const SizedBox(height: 20),
+
+                                  /// Already have account
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          localizations.alreadyHaveAccount,
+                                          style: theme.textTheme.bodyMedium?.copyWith(
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        TextButton(
+                                          onPressed: _isLoading ? null : () => Navigator.pop(context),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: const Color(0xFF6366F1),
+                                          ),
+                                          child: Text(
+                                            localizations.signIn,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _inputContainer(BuildContext context, {required Widget child}) {
-    final theme = Theme.of(context);
-
+  /// ===== Input Container =====
+  Widget _inputContainer(ThemeData theme, {required Widget child}) {
     return Container(
       decoration: BoxDecoration(
         color: theme.cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: theme.brightness == Brightness.dark
+                ? Colors.black.withOpacity(0.3)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: child,
     );
   }
+}
+
+// Custom Page Transition
+enum PageTransitionType { slideFromRight, slideFromLeft, fade, scale }
+
+class PageTransition extends PageRouteBuilder {
+  final Widget child;
+  final PageTransitionType type;
+  final Duration duration;
+
+  PageTransition({
+    required this.child,
+    this.type = PageTransitionType.slideFromRight,
+    this.duration = const Duration(milliseconds: 400),
+  }) : super(
+    transitionDuration: duration,
+    pageBuilder: (context, animation, secondaryAnimation) => child,
+  );
 
   @override
-  void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
+  Widget buildTransitions(BuildContext context, Animation<double> animation,
+      Animation<double> secondaryAnimation, Widget child) {
+    switch (type) {
+      case PageTransitionType.slideFromRight:
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        );
+      case PageTransitionType.slideFromLeft:
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(-1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
+        );
+      case PageTransitionType.fade:
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      case PageTransitionType.scale:
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.95, end: 1).animate(
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+          ),
+          child: FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+        );
+    }
   }
 }

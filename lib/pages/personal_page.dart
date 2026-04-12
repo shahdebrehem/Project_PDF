@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:project_flutter/services/auth_service.dart';
 import 'package:project_flutter/services/files_service.dart';
+import 'edit_profile_page.dart';
+import 'package:intl/intl.dart';
 
 class PersonalPage extends StatefulWidget {
   final Map<String, dynamic>? user;
@@ -11,23 +15,122 @@ class PersonalPage extends StatefulWidget {
   State<PersonalPage> createState() => _PersonalPageState();
 }
 
-class _PersonalPageState extends State<PersonalPage> {
+class _PersonalPageState extends State<PersonalPage>
+    with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
   final FilesService _filesService = FilesService();
 
   Map<String, dynamic>? _user;
   List<Map<String, dynamic>> _userFiles = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   Map<String, int> _stats = {
     'completed': 0,
     'processing': 0,
     'total': 0,
   };
+  late String _selectedLanguage;
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
+
+    _animationController.forward();
+
+    // تحديث البيانات عند بدء الصفحة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshUserData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final currentLang = Localizations.localeOf(context).languageCode;
+    _selectedLanguage = currentLang == 'ar' ? 'arabic' : 'english';
+  }
+
+  bool get isArabic => _selectedLanguage == 'arabic';
+
+  // دالة للحصول على صورة المستخدم
+  ImageProvider? _getUserAvatar() {
+    if (_user == null) return null;
+
+    if (_user!['avatarBytes'] != null) {
+      try {
+        Uint8List bytes = base64Decode(_user!['avatarBytes']);
+        return MemoryImage(bytes);
+      } catch (e) {
+        debugPrint('Error decoding avatar: $e');
+      }
+    }
+
+    if (_user!['avatar'] != null && _user!['avatar'].toString().isNotEmpty) {
+      return NetworkImage(_user!['avatar']);
+    }
+
+    return null;
+  }
+
+  // حساب المدة منذ الانضمام
+  String _getMemberSince() {
+    if (_user?['createdAt'] == null) return isArabic ? 'تاريخ غير معروف' : 'Unknown date';
+
+    try {
+      DateTime joinDate = DateTime.parse(_user!['createdAt']);
+      final now = DateTime.now();
+      final difference = now.difference(joinDate);
+
+      if (difference.inDays > 365) {
+        final years = (difference.inDays / 365).floor();
+        return isArabic ? 'عضو منذ $years سنة' : 'Member for $years years';
+      } else if (difference.inDays > 30) {
+        final months = (difference.inDays / 30).floor();
+        return isArabic ? 'عضو منذ $months شهر' : 'Member for $months months';
+      } else if (difference.inDays > 0) {
+        return isArabic ? 'عضو منذ ${difference.inDays} يوم' : 'Member for ${difference.inDays} days';
+      } else {
+        final hours = difference.inHours;
+        return isArabic ? 'عضو منذ $hours ساعة' : 'Member for $hours hours';
+      }
+    } catch (e) {
+      return isArabic ? 'عضو جديد' : 'New member';
+    }
+  }
+
+  // تنسيق التاريخ
+  String _formatDate(String? dateString) {
+    if (dateString == null) return isArabic ? 'غير محدد' : 'Not set';
+    try {
+      DateTime date = DateTime.parse(dateString);
+      final formatter = DateFormat(isArabic ? 'yyyy MMMM dd' : 'MMMM dd, yyyy');
+      return formatter.format(date);
+    } catch (e) {
+      return dateString;
+    }
   }
 
   Future<void> _loadData() async {
@@ -40,9 +143,31 @@ class _PersonalPageState extends State<PersonalPage> {
     }
 
     await _loadUserFiles();
+
+    // ✅ تأكد من تحديث الصورة
+    await _refreshUserData();
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _refreshUserData() async {
+    // ✅ استرجع أحدث بيانات المستخدم من التخزين
+    final freshUser = await _authService.getCurrentUserFromStorage();
+    if (freshUser != null && mounted) {
+      setState(() {
+        _user = freshUser;
+      });
+      print('✅ PersonalPage - User data refreshed: ${_user?['name']}, Has avatar: ${_user?['avatarBytes'] != null}');
+    }
   }
 
   Future<void> _loadUserFiles() async {
+    if (_isRefreshing) return;
+
+    setState(() => _isRefreshing = true);
+
     final files = await _filesService.getRecentFiles();
 
     int completed = files.where((f) => f['status'] == 'Completed').length;
@@ -57,12 +182,13 @@ class _PersonalPageState extends State<PersonalPage> {
           'total': files.length,
         };
         _isLoading = false;
+        _isRefreshing = false;
       });
     }
   }
 
   String _getInitials(String? name) {
-    if (name == null || name.isEmpty) return 'U';
+    if (name == null || name.isEmpty) return isArabic ? 'م' : 'U';
     final parts = name.split(' ');
     if (parts.length > 1) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
@@ -71,7 +197,7 @@ class _PersonalPageState extends State<PersonalPage> {
   }
 
   Color _getColorFromName(String? name) {
-    if (name == null || name.isEmpty) return const Color(0xFF64B5F6);
+    if (name == null || name.isEmpty) return const Color(0xFF6366F1);
     final hash = name.hashCode.abs();
     final hue = hash % 360;
     return HSLColor.fromAHSL(1.0, hue.toDouble(), 0.7, 0.5).toColor();
@@ -80,20 +206,12 @@ class _PersonalPageState extends State<PersonalPage> {
   Future<void> _deleteFile(String fileId, String fileName) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete File'),
-        content: Text('Are you sure you want to delete "$fileName"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (context) => _buildAnimatedDialog(
+        context,
+        title: isArabic ? 'حذف الملف' : 'Delete File',
+        content: isArabic ? 'هل أنت متأكد من حذف "$fileName"؟' : 'Are you sure you want to delete "$fileName"?',
+        confirmText: isArabic ? 'حذف' : 'Delete',
+        isDestructive: true,
       ),
     );
 
@@ -102,161 +220,124 @@ class _PersonalPageState extends State<PersonalPage> {
       if (success) {
         _loadUserFiles();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('File deleted successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          _showSuccessSnackBar(isArabic ? 'تم حذف الملف بنجاح' : 'File deleted successfully');
+        }
+      } else {
+        if (mounted) {
+          _showErrorSnackBar(isArabic ? 'فشل حذف الملف' : 'Failed to delete file');
         }
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('My Documents'),
-          backgroundColor: theme.cardColor,
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
         ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('My Documents'),
-        elevation: 0,
-        backgroundColor: theme.cardColor,
-        foregroundColor: theme.textTheme.bodyLarge?.color,
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadUserFiles,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedDialog(BuildContext context, {
+    required String title,
+    required String content,
+    required String confirmText,
+    bool isDestructive = false,
+  }) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: ScaleTransition(
+        scale: CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
+        child: Container(
+          padding: const EdgeInsets.all(24),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: double.infinity,
-                color: theme.cardColor,
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            _getColorFromName(_user?['name']),
-                            _getColorFromName(_user?['name']).withBlue(200),
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _getColorFromName(_user?['name']).withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          _getInitials(_user?['name']),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      _user?['name'] ?? 'User',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _user?['email'] ?? '',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildStatItem(theme, 'Completed', '${_stats['completed']}', const Color(0xFF81C784)),
-                        _buildStatItem(theme, 'Processing', '${_stats['processing']}', const Color(0xFFFFB74D)),
-                        _buildStatItem(theme, 'Total', '${_stats['total']}', const Color(0xFF64B5F6)),
-                      ],
-                    ),
-                  ],
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: (isDestructive ? Colors.red : Colors.green).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isDestructive ? Icons.warning_rounded : Icons.check_circle_rounded,
+                  color: isDestructive ? Colors.red : Colors.green,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
-
-              Container(
-                color: theme.cardColor,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'All Documents',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Your processed PDF files',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    if (_userFiles.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(40),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.folder_open_rounded,
-                              size: 60,
-                              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.3),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No documents yet',
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Upload your first PDF to get started',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ..._userFiles.map((file) => _buildUserFileItem(theme, file)),
-                  ],
+              Text(
+                content,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
                 ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDestructive ? Colors.red : Theme.of(context).primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Text(confirmText),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -265,59 +346,670 @@ class _PersonalPageState extends State<PersonalPage> {
     );
   }
 
-  Widget _buildStatItem(ThemeData theme, String title, String value, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final avatarImage = _getUserAvatar();
+    final memberSince = _getMemberSince();
+    final joinDate = _formatDate(_user?['createdAt']);
+
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(isArabic ? 'ملفي الشخصي' : 'My Profile'),
+          backgroundColor: theme.cardColor,
+          elevation: 0,
+        ),
+        body: Center(
+          child: TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 800),
+            builder: (context, double value, child) {
+              return Opacity(
+                opacity: value,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 50,
+                      height: 50,
+                      child: CircularProgressIndicator(strokeWidth: 3),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      isArabic ? 'جاري التحميل...' : 'Loading...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(
+          isArabic ? 'ملفي الشخصي' : 'My Profile',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        elevation: 0,
+        backgroundColor: theme.cardColor,
+        foregroundColor: theme.textTheme.bodyLarge?.color,
+        iconTheme: theme.iconTheme,
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_rounded),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditProfilePage(user: _user),
+                ),
+              );
+
+              if (result != null && mounted) {
+                // معالجة النتيجة من EditProfilePage
+                if (result is Map && result['updated'] == true) {
+                  // تحديث البيانات من النتيجة المرسلة
+                  final updatedUserData = result['userData'];
+                  if (updatedUserData != null) {
+                    setState(() {
+                      _user = updatedUserData;
+                    });
+                    print('✅ User updated from edit page: ${_user?['name']}');
+                  } else {
+                    // إذا لم تكن هناك بيانات محدثة، قم بإعادة التحميل
+                    await _refreshUserData();
+                  }
+
+                  // إعادة تحميل الملفات لتحديث الإحصائيات
+                  await _loadUserFiles();
+
+                  _showSuccessSnackBar(isArabic ? 'تم تحديث الملف الشخصي' : 'Profile updated');
+                }
+              }
+            },
+            tooltip: isArabic ? 'تعديل الملف الشخصي' : 'Edit Profile',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadUserFiles,
+        color: const Color(0xFF6366F1),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // Header Section
+            SliverToBoxAdapter(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(40),
+                      bottomRight: Radius.circular(40),
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
+                      child: Column(
+                        children: [
+                          // Profile Image - Larger size
+                          TweenAnimationBuilder(
+                            tween: Tween<double>(begin: 0, end: 1),
+                            duration: const Duration(milliseconds: 600),
+                            builder: (context, double value, child) {
+                              return Transform.scale(
+                                scale: value,
+                                child: Container(
+                                  width: 140,
+                                  height: 140,
+                                  decoration: BoxDecoration(
+                                    gradient: avatarImage == null
+                                        ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        _getColorFromName(_user?['name']),
+                                        _getColorFromName(_user?['name']).withBlue(200),
+                                      ],
+                                    )
+                                        : null,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 10),
+                                      ),
+                                      BoxShadow(
+                                        color: const Color(0xFF6366F1).withOpacity(0.3),
+                                        blurRadius: 30,
+                                        offset: const Offset(0, 5),
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 4,
+                                    ),
+                                    image: avatarImage != null
+                                        ? DecorationImage(
+                                      image: avatarImage,
+                                      fit: BoxFit.cover,
+                                    )
+                                        : null,
+                                  ),
+                                  child: avatarImage == null
+                                      ? Center(
+                                    child: Text(
+                                      _getInitials(_user?['name']),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 48,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  )
+                                      : null,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Name and Badge
+                          Text(
+                            _user?['name'] ?? (isArabic ? 'مستخدم' : 'User'),
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isArabic
+                                      ? 'عضو مميز • ${_userFiles.length} مستند'
+                                      : 'Premium Member • ${_userFiles.length} document${_userFiles.length != 1 ? 's' : ''}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Member Since Card
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  memberSince,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Icon(
+                                  Icons.schedule_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  joinDate,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Stats Section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.cardColor,
+                          theme.cardColor.withOpacity(0.8),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildStatItem(theme, isArabic ? 'مكتمل' : 'Completed', '${_stats['completed']}', const Color(0xFF10B981), Icons.check_circle_rounded),
+                        Container(
+                          width: 1,
+                          height: 50,
+                          color: Colors.grey.withOpacity(0.2),
+                        ),
+                        _buildStatItem(theme, isArabic ? 'قيد المعالجة' : 'Processing', '${_stats['processing']}', const Color(0xFFF59E0B), Icons.hourglass_empty_rounded),
+                        Container(
+                          width: 1,
+                          height: 50,
+                          color: Colors.grey.withOpacity(0.2),
+                        ),
+                        _buildStatItem(theme, isArabic ? 'المجموع' : 'Total', '${_stats['total']}', const Color(0xFF6366F1), Icons.folder_rounded),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Contact Information Section
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.1),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: _animationController,
+                    curve: const Interval(0.2, 0.5, curve: Curves.easeOut),
+                  )),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.contact_mail_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              isArabic ? 'معلومات الاتصال' : 'Contact Information',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        _buildInfoRow(
+                          theme,
+                          Icons.email_rounded,
+                          isArabic ? 'البريد الإلكتروني' : 'Email Address',
+                          _user?['email'] ?? '',
+                          const Color(0xFF6366F1),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildInfoRow(
+                          theme,
+                          Icons.calendar_today_rounded,
+                          isArabic ? 'تاريخ الانضمام' : 'Join Date',
+                          joinDate,
+                          const Color(0xFF10B981),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Documents Section Header
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.folder_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          isArabic ? 'المستندات الأخيرة' : 'Recent Documents',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_userFiles.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6366F1).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_userFiles.length} ${isArabic ? 'ملف' : 'files'}',
+                          style: const TextStyle(
+                            color: Color(0xFF6366F1),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Documents List
+            if (_userFiles.isEmpty)
+              SliverToBoxAdapter(
+                child: TweenAnimationBuilder(
+                  tween: Tween<double>(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 600),
+                  builder: (context, double value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      child: Container(
+                        margin: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(40),
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.grey.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.folder_open_rounded,
+                              size: 80,
+                              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.3),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              isArabic ? 'لا توجد مستندات بعد' : 'No documents yet',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              isArabic
+                                  ? 'قم برفع أول ملف PDF للبدء في استخدام خدماتنا الذكية'
+                                  : 'Upload your first PDF to start using our smart services',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                    final file = _userFiles[index];
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0.2, 0),
+                        end: Offset.zero,
+                      ).animate(CurvedAnimation(
+                        parent: _animationController,
+                        curve: Interval(0.1 + (index * 0.03), 1.0, curve: Curves.easeOutCubic),
+                      )),
+                      child: _buildUserFileItem(theme, file),
+                    );
+                  },
+                  childCount: _userFiles.length,
+                ),
+              ),
+
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 32),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(ThemeData theme, String title, String value, Color color, IconData icon) {
+    return TweenAnimationBuilder(
+      tween: Tween<double>(begin: 0, end: double.parse(value)),
+      duration: const Duration(milliseconds: 800),
+      builder: (context, double animatedValue, child) {
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              animatedValue.toInt().toString(),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(ThemeData theme, IconData icon, String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          title,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildUserFileItem(ThemeData theme, Map<String, dynamic> file) {
     String status = file['status'] ?? 'Completed';
-    Color statusColor = status == 'Completed' ? const Color(0xFF81C784) : const Color(0xFFFFB74D);
+    Color statusColor = status == 'Completed' ? const Color(0xFF10B981) : const Color(0xFFF59E0B);
+    String fileSize = file['size'] ?? '';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
       decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(16),
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: theme.brightness == Brightness.dark
                 ? Colors.black.withOpacity(0.3)
                 : Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            // يمكن إضافة عرض تفاصيل الملف هنا
+          },
+          borderRadius: BorderRadius.circular(20),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -325,8 +1017,13 @@ class _PersonalPageState extends State<PersonalPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _getTypeColor(file['type']).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: LinearGradient(
+                      colors: [
+                        _getTypeColor(file['type']).withOpacity(0.2),
+                        _getTypeColor(file['type']).withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
                     _getTypeIcon(file['type']),
@@ -345,60 +1042,140 @@ class _PersonalPageState extends State<PersonalPage> {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Row(
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  status == 'Completed' ? Icons.check_circle : Icons.hourglass_empty,
+                                  size: 12,
+                                  color: statusColor,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isArabic
+                                      ? (status == 'Completed' ? 'مكتمل' : 'قيد المعالجة')
+                                      : status,
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: statusColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
+                              color: _getTypeColor(file['type']).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              status,
+                              _translateFileType(file['type']),
                               style: TextStyle(
-                                color: statusColor,
-                                fontSize: 12,
+                                color: _getTypeColor(file['type']),
+                                fontSize: 11,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '${file['type']} • ${file['date']}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                                fontSize: 12,
+                          if (fileSize.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
                               ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.storage_rounded,
+                                    size: 10,
+                                    color: Colors.grey[500],
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    fileSize,
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_today_rounded,
+                            size: 10,
+                            color: Colors.grey[500],
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            file['date'],
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[500],
+                              fontSize: 10,
                             ),
                           ),
                         ],
                       ),
-                      if (file['size'] != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          file['size'],
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.visibility_rounded, color: const Color(0xFF64B5F6)),
-                  onPressed: () {},
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.visibility_rounded,
+                      color: Color(0xFF6366F1),
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      // عرض الملف
+                    },
+                    tooltip: isArabic ? 'عرض' : 'View',
+                  ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.download_rounded, color: const Color(0xFF81C784)),
-                  onPressed: () {},
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.download_rounded,
+                      color: Color(0xFF10B981),
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      // تحميل الملف
+                    },
+                    tooltip: isArabic ? 'تحميل' : 'Download',
+                  ),
                 ),
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert_rounded, color: theme.iconTheme.color),
@@ -408,13 +1185,13 @@ class _PersonalPageState extends State<PersonalPage> {
                     }
                   },
                   itemBuilder: (context) => [
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete, color: Colors.red, size: 20),
-                          SizedBox(width: 8),
-                          Text('Delete', style: TextStyle(color: Colors.red)),
+                          Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                          const SizedBox(width: 12),
+                          Text(isArabic ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -428,25 +1205,39 @@ class _PersonalPageState extends State<PersonalPage> {
     );
   }
 
+  String _translateFileType(String? type) {
+    if (!isArabic) return type ?? '';
+    switch (type?.toLowerCase()) {
+      case 'summary':
+        return 'تلخيص';
+      case 'translation':
+        return 'ترجمة';
+      case 'questions':
+        return 'أسئلة';
+      default:
+        return type ?? '';
+    }
+  }
+
   Color _getTypeColor(String? type) {
     switch (type?.toLowerCase()) {
       case 'summary':
-        return const Color(0xFF64B5F6);
+        return const Color(0xFF6366F1);
       case 'translation':
-        return const Color(0xFF81C784);
+        return const Color(0xFF10B981);
       case 'questions':
-        return const Color(0xFFFFB74D);
+        return const Color(0xFFF59E0B);
       default:
-        return const Color(0xFF64B5F6);
+        return const Color(0xFF6366F1);
     }
   }
 
   IconData _getTypeIcon(String? type) {
     switch (type?.toLowerCase()) {
       case 'summary':
-        return Icons.summarize_rounded;
+        return Icons.auto_awesome_rounded;
       case 'translation':
-        return Icons.translate_rounded;
+        return Icons.language_rounded;
       case 'questions':
         return Icons.quiz_rounded;
       default:
